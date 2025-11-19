@@ -1,132 +1,137 @@
 local S=game:GetService("TweenService")
 local I=game:GetService("UserInputService")
-local P=game.Players.LocalPlayer.PlayerGui
+local P=game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
 local G=Instance.new("ScreenGui",P)
+G.Name="SultanLib"
 G.ResetOnSpawn=false
 G.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-G.Name="SultanLib"
-local Z=100
-local X=180
 
-local function D(F)
-local dr,start,startPos
-F.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then
-dr=true start=i.Position startPos=F.Position end end)
-F.InputChanged:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseMovement and dr then
-local delta=i.Position-start
-S:Create(F,TweenInfo.new(.12),{Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)}):Play()
-end end)
-I.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dr=false end end)
+local Z=10
+local X=200
+
+local function Drag(f)
+	local dr,start,startPos
+	f.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			dr=true start=i.Position startPos=f.Position
+		end
+	end)
+	f.InputChanged:Connect(function(i)
+		if dr and i.UserInputType==Enum.UserInputType.MouseMovement then
+			local d=i.Position-start
+			f.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+		end
+	end)
+	I.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 then dr=false end end)
 end
 
 local Lib={}
-function Lib:Window(n)
-X=X+280
-local W=Instance.new("Frame",G)
-W.Size=UDim2.new(0,260,0,500)
-W.Position=UDim2.new(0,X,0,-600)
-W.BackgroundColor3=Color3.fromRGB(20,16,32)
-W.ZIndex=Z Z=Z+10
+function Lib:Window(name)
+	X=X+300
+	local Win=Instance.new("Frame",G)
+	Win.Size=UDim2.new(0,246,0,454)
+	Win.Position=UDim2.new(0,X,0,-600)
+	Win.BackgroundColor3=Color3.fromRGB(29,25,37)
+	Win.BackgroundTransparency=0.2
+	Win.BorderSizePixel=0
+	Win.ZIndex=Z Z=Z+10
 
-local C=Instance.new("UICorner",W)C.CornerRadius=UDim.new(0,18)
-local T=Instance.new("UIStroke",W)
-T.Thickness=2 T.Color=Color3.fromRGB(140,60,255) T.Transparency=.35
-local Gr=Instance.new("UIGradient",T)
-Gr.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,Color3.fromRGB(180,50,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(50,150,255))}
-Gr.Rotation=45
+	local Corner=Instance.new("UICorner",Win)
+	Corner.CornerRadius=UDim.new(0,20)
 
-local Title=Instance.new("TextLabel",W)
-Title.Size=UDim2.new(1,-60,0,50)
-Title.Position=UDim2.new(0,20,0,0)
-Title.BackgroundTransparency=1
-Title.Text=n or"Tab"
-Title.TextColor3=Color3.new(1,1,1)
-Title.Font=Enum.Font.GothamBold
-Title.TextSize=21
-Title.TextXAlignment="Left"
-Title.ZIndex=W.ZIndex+1
+	local Stroke=Instance.new("UIStroke",Win)
+	Stroke.Thickness=2
+	Stroke.Color=Color3.fromRGB(140,60,255)
+	Stroke.Transparency=0.4
+	local Grad=Instance.new("UIGradient",Stroke)
+	Grad.Color=ColorSequence.new{
+		ColorSequenceKeypoint.new(0,Color3.fromRGB(170,50,255)),
+		ColorSequenceKeypoint.new(1,Color3.fromRGB(50,150,255))
+	}
+	Grad.Rotation=45
 
-local Close=Instance.new("TextButton",W)
-Close.Size=UDim2.new(0,36,0,36)
-Close.Position=UDim2.new(1,-46,0,7)
-Close.BackgroundTransparency=1
-Close.Text="×"
-Close.TextColor3=Color3.fromRGB(255,80,80)
-Close.Font=Enum.Font.GothamBold
-Close.TextSize=30
-Close.ZIndex=W.ZIndex+2
-Close.MouseButton1Click:Connect(function()
-S:Create(W,TweenInfo.new(.4,Enum.EasingStyle.Quint),{Position=UDim2.new(0,X,0,-600)}):Play()
-task.wait(.45)W:Destroy()
-end)
+	local Title=Instance.new("TextLabel",Win)
+	Title.Name="Tab name text"
+	Title.Size=UDim2.new(0,48,0,15)
+	Title.Position=UDim2.new(0.41663,0,0.02173,0)
+	Title.BackgroundTransparency=1
+	Title.Text=name
+	Title.TextColor3=Color3.new(1,1,1)
+	Title.Font=Enum.Font.Arial
+	Title.TextSize=30
+	Title.ZIndex=Win.ZIndex+1
 
-local Drag=Instance.new("Frame",W)
-Drag.Size=UDim2.new(1,0,0,50)
-Drag.BackgroundTransparency=1
-Drag.ZIndex=W.ZIndex+3
-D(Drag)
+	local DragArea=Instance.new("Frame",Win)
+	DragArea.Size=UDim2.new(1,0,0,50)
+	DragArea.BackgroundTransparency=1
+	Drag(DragArea)
 
-S:Create(W,TweenInfo.new(.7,Enum.EasingStyle.Back),{Position=UDim2.new(0,X,0,120)}):Play()
+	S:Create(Win,TweenInfo.new(0.6,Enum.E subduedStyle.Back),{Position=UDim2.new(0,X,0.112,0)}):Play()
 
-local C=Instance.new("Folder",W)C.Name="C"
+	local Container=Instance.new("Frame",Win)
+	Container.Size=UDim2.new(1,0,1,0)
+	Container.BackgroundTransparency=1
+	Container.ZIndex=Win.ZIndex
 
-local tab={}
-function tab:Button(t,f)
-local B=Instance.new("TextButton",C)
-B.Size=UDim2.new(0,210,0,44)
-B.Position=UDim2.new(0,25,0,60+(#C:GetChildren()*52))
-B.BackgroundColor3=Color3.fromRGB(30,24,46)
-B.Text="  "..t
-B.TextColor3=Color3.new(1,1,1)
-B.Font=Enum.Font.Gotham
-B.TextSize=18
-B.TextXAlignment="Left"
-B.ZIndex=W.ZIndex+5
+	local Y=0.08431
+	local tab={}
+	function tab:Button(text,callback)
+		local Btn=Instance.new("TextButton",Container)
+		Btn.Size=UDim2.new(0,210,0,41)
+		Btn.Position=UDim2.new(0.0841,0,Y,0)
+		Btn.BackgroundColor3=Color3.fromRGB(29,25,37)
+		Btn.BackgroundTransparency=0.15
+		Btn.BorderSizePixel=0
+		Btn.Text=" "..text
+		Btn.TextColor3=Color3.new(1,1,1)
+		Btn.Font=Enum.Font.Arial
+		Btn.TextSize=19
+		Btn.TextXAlignment="Left"
+		Btn.ZIndex=Win.ZIndex+3
 
-Instance.new("UICorner",B).CornerRadius=UDim.new(0,12)
-local St=Instance.new("UIStroke",B)
-St.Color=Color3.fromRGB(120,50,220)
-St.Thickness=1.5
-St.Transparency=.6
+		local C=Instance.new("UICorner",Btn)
+		C.CornerRadius=UDim.new(0,12)
 
-B.MouseButton1Click:Connect(function()
-spawn(f)
-S:Create(B,TweenInfo.new(.15),{BackgroundColor3=Color3.fromRGB(90,40,180)}):Play()
-task.wait(.15)
-S:Create(B,TweenInfo.new(.15),{BackgroundColor3=Color3.fromRGB(30,24,46)}):Play()
-end)
-end
-return tab
+		Btn.MouseButton1Click:Connect(function()
+			spawn(callback)
+		end)
+
+		Y=Y+0.10132 -- точное расстояние между кнопками как у тебя
+	end
+
+	return tab
 end
 
-function Lib:Notify(t,d)
-d=d or 3
-local N=Instance.new("Frame",G)
-N.Size=UDim2.new(0,320,0,80)
-N.Position=UDim2.new(1,-340,1,-100)
-N.BackgroundColor3=Color3.fromRGB(20,16,32)
-N.ZIndex=9999
+function Lib:Notify(text,dur)
+	dur=dur or 3
+	local N=Instance.new("Frame",G)
+	N.Size=UDim2.new(0,300,0,80)
+	N.Position=UDim2.new(0.5,-150,0,-100)
+	N.BackgroundColor3=Color3.fromRGB(29,25,37)
+	N.BackgroundTransparency=0.2
+	N.ZIndex=9999
 
-Instance.new("UICorner",N).CornerRadius=UDim.new(0,16)
-local St=Instance.new("UIStroke",N)
-St.Color=Color3.fromRGB(140,60,255)
-St.Thickness=2
+	local C=Instance.new("UICorner",N)C.CornerRadius=UDim.new(0,16)
+	local S=Instance.new("UIStroke",N)
+	S.Color=Color3.fromRGB(140,60,255)
+	S.Thickness=2
+	S.Transparency=0.5
 
-local L=Instance.new("TextLabel",N)
-L.Size=UDim2.new(1,-20,1,0)
-L.Position=UDim2.new(0,10,0,0)
-L.BackgroundTransparency=1
-L.Text=t
-L.TextColor3=Color3.new(1,1,1)
-L.Font=Enum.Font.GothamBold
-L.TextSize=19
-L.ZIndex=10000
+	local L=Instance.new("TextLabel",N)
+	L.Size=UDim2.new(1,0,1,0)
+	L.BackgroundTransparency=1
+	L.Text=text
+	L.TextColor3=Color3.new(1,1,1)
+	L.Font=Enum.Font.GothamBold
+	L.TextSize=22
+	L.ZIndex=10000
 
-S:Create(N,TweenInfo.new(.5,Enum.EasingStyle.Quint),{Position=UDim2.new(1,-340,1,-170)}):Play()
-task.wait(d)
-S:Create(N,TweenInfo.new(.5),{Position=UDim2.new(1,20,1,-100)}):Play()
-task.wait(.6)
-N:Destroy()
+	N.Position=UDim2.new(0.5,-150,0,-100)
+	S:Create(N,TweenInfo.new(0.6,Enum.EasingStyle.Back),{Position=UDim2.new(0.5,-150,0,120)}):Play()
+	task.wait(dur)
+	S:Create(N,TweenInfo.new(0.5),{Position=UDim2.new(0.5,-150,0,-100)}):Play()
+	task.wait(0.6) N:Destroy()
 end
 
 return Lib
