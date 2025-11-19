@@ -1,191 +1,150 @@
--- SultanLib v5 - Nursultan Minecraft Style 2025
+-- SultanLib Final — Nursultan Style 2025 
+
+
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
+local pgui = Player:WaitForChild("PlayerGui")
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SultanLib_Nursultan"
+ScreenGui.Name = "SultanLib"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = PlayerGui
+ScreenGui.Parent = pgui
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 700, 0, 500)
-MainFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-MainFrame.BackgroundTransparency = 0.1
-MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 16)
-MainCorner.Parent = MainFrame
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 680, 0, 500)
+Main.Position = UDim2.new(0.5, -340, 0.5, -250)
+Main.BackgroundColor3 = Color3.fromRGB(12, 12, 22)
+Main.BackgroundTransparency = 0.05
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
 
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 2
-MainStroke.Color = Color3.fromRGB(80, 120, 255)
-MainStroke.Transparency = 0.3
-MainStroke.Parent = MainFrame
+local Corner = Instance.new("UICorner", Main)
+Corner.CornerRadius = UDim.new(0, 18)
 
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 80, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 180, 255))
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Thickness = 2.8
+Stroke.Transparency = 0.35
+Stroke.Color = Color3.fromRGB(100, 100, 255)
+local Grad = Instance.new("UIGradient", Stroke)
+Grad.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(140, 80, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 160, 255))
 }
-Gradient.Rotation = 90
-Gradient.Parent = MainStroke
+Grad.Rotation = 90
 
--- Заголовок
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 50)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 55)
 Title.BackgroundTransparency = 1
-Title.Text = "SultanLib — Nursultan Edition"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 24
-Title.Parent = MainFrame
+Title.Text = "SultanLib"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBlack
+Title.TextSize = 28
+Title.TextStrokeTransparency = 0.8
 
--- Контейнер вкладок
-local TabButtons = Instance.new("Frame")
-TabButtons.Size = UDim2.new(1, 0, 0, 50)
-TabButtons.Position = UDim2.new(0, 0, 0, 50)
-TabButtons.BackgroundTransparency = 1
-TabButtons.Parent = MainFrame
 
-local ContentFrame = Instance.new("Frame")
-ContentFrame.Size = UDim2.new(1, 0, 1, -100)
-ContentFrame.Position = UDim2.new(0, 0, 0, 100)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = MainFrame
+local Tabs = Instance.new("Frame", Main)
+Tabs.Size = UDim2.new(1, 0, 0, 55)
+Tabs.Position = UDim2.new(0, 0, 0, 55)
+Tabs.BackgroundTransparency = 1
 
-local Tabs = {}
-local CurrentTab = nil
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(1, -20, 1, -120)
+Content.Position = UDim2.new(0, 10, 0, 110)
+Content.BackgroundTransparency = 1
 
-local function CreateTab(Name)
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0, 120, 1, 0)
-    Button.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
-    Button.Text = Name
-    Button.TextColor3 = Color3.fromRGB(180, 180, 180)
-    Button.Font = Enum.Font.Gotham
-    Button.TextSize = 16
-    Button.Parent = TabButtons
-    Button.Position = UDim2.new(0, (#TabButtons:GetChildren() - 2) * 122, 0, 0)
+local ActivePage = nil
+local Buttons = {}
 
-    local Corner = Instance.new("UICorner", Button)
-    Corner.CornerRadius = UDim.new(0, 8)
+local function CreateTab(name)
+    local btn = Instance.new("TextButton", Tabs)
+    btn.Size = UDim2.new(0, 140, 0, 45)
+    btn.Position = UDim2.new(0, (#Buttons * 145), 0, 5)
+    btn.BackgroundColor3 = Color3.fromRGB(20, 20, 38)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 18
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+    table.insert(Buttons, btn)
 
-    local Content = Instance.new("ScrollingFrame")
-    Content.Size = UDim2.new(1, 0, 1, 0)
-    Content.BackgroundTransparency = 1
-    Content.ScrollBarThickness = 4
-    Content.Visible = false
-    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Content.Parent = ContentFrame
+    local page = Instance.new("ScrollingFrame", Content)
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 255)
+    page.Visible = false
+    page.CanvasSize = UDim2.new(0, 0, 0, 0)
 
-    local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 8)
-    Layout.Parent = Content
+    local layout = Instance.new("UIListLayout", page)
+    layout.Padding = UDim.new(0, 10)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    Button.MouseButton1Click:Connect(function()
-        if CurrentTab then CurrentTab.Visible = false end
-        CurrentTab = Content
-        Content.Visible = true
-        for _, btn in pairs(TabButtons:GetChildren()) do
-            if btn:IsA("TextButton") then
-                btn.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
-                btn.TextColor3 = Color3.fromRGB(180, 180, 180)
-            end
+    btn.MouseButton1Click:Connect(function()
+        if ActivePage then ActivePage.Visible = false end
+        ActivePage = page
+        page.Visible = true
+        for _, b in Buttons do
+            b.BackgroundColor3 = Color3.fromRGB(20, 20, 38)
+            b.TextColor3 = Color3.fromRGB(200, 200, 200)
         end
-        Button.BackgroundColor3 = Color3.fromRGB(80, 120, 255)
-        Button.TextColor3 = Color3.new(1,1,1)
+        btn.BackgroundColor3 = Color3.fromRGB(90, 70, 255)
+        btn.TextColor3 = Color3.new(1,1,1)
     end)
 
-    local Tab = {}
-
-    function Tab:Button(Name, Callback)
-        local Btn = Instance.new("TextButton")
-        Btn.Size = UDim2.new(1, -20, 0, 40)
-        Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-        Btn.Text = "  " .. Name
-        Btn.TextColor3 = Color3.new(1,1,1)
-        Btn.Font = Enum.Font.Gotham
-        Btn.TextXAlignment = "Left"
-        Btn.Parent = Content
-        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 8)
-        Btn.MouseButton1Click:Connect(Callback or function() end)
-        Content.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+    local tab = {}
+    function tab:Button(text, callback)
+        local b = Instance.new("TextButton", page)
+        b.Size = UDim2.new(1, -20, 0, 45)
+        b.BackgroundColor3 = Color3.fromRGB(22, 22, 44)
+        b.Text = "  " .. text
+        b.TextColor3 = Color3.new(1,1,1)
+        b.Font = Enum.Font.Gotham
+        b.TextSize = 18
+        b.TextXAlignment = "Left"
+        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 12)
+        b.MouseButton1Click:Connect(callback or function() end)
+        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 20)
     end
 
-    function Tab:Toggle(Name, Default, Callback)
-        local Toggle = Instance.new("TextButton")
-        Toggle.Size = UDim2.new(1, -20, 0, 40)
-        Toggle.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
-        Toggle.Text = "  " .. Name
-        Toggle.TextColor3 = Color3.new(1,1,1)
-        Toggle.Font = Enum.Font.Gotham
-        Toggle.TextXAlignment = "Left"
-        Toggle.Parent = Content
-
-        local Indicator = Instance.new("Frame")
-        Indicator.Size = UDim2.new(0, 30, 0, 16)
-        Indicator.Position = UDim2.new(1, -40, 0.5, -8)
-        Indicator.BackgroundColor3 = Default and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 60)
-        Indicator.Parent = Toggle
-        Instance.new("UICorner", Indicator).CornerRadius = UDim.new(0, 8)
-
-        local state = Default or false
-        Toggle.MouseButton1Click:Connect(function()
-            state = not state
-            Indicator.BackgroundColor3 = state and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 60)
-            if Callback then Callback(state) end
-        end)
-
-        Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 8)
-        Content.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
-    end
-
-    function Tab:Slider(Name, Min, Max, Default, Callback)
-        -- можно добавить слайдер (по желанию)
-    end
-
-    table.insert(Tabs, {Button = Button, Content = Content})
-    return Tab
+    return tab
 end
 
--- Драг
-local Drag = Instance.new("Frame")
-Drag.Size = UDim2.new(1,0,0,50)
-Drag.BackgroundTransparency = 1
-Drag.Parent = MainFrame
+
 local dragging = false
-local startPos
-Drag.InputBegan:Connect(function(i)
+local dragStart, startPos
+Main.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
-        startPos = MainFrame.Position
-        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        dragStart = i.Position
+        startPos = Main.Position
     end
-end
-Drag.InputChanged:Connect(function(i)
+end)
+Main.InputChanged:Connect(function(i)
     if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = i.Position - (i.Position - MainFrame.Position) wait() -- фикс
-        MainFrame.Position = UDim2.new(0, startPos.X.Offset + (i.Position.X - startPos.X.Offset), 0, startPos.Y.Offset + (i.Position.Y - startPos.Y.Offset))
+        local delta = i.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
 
-local SultanLib = {}
-function SultanLib:Tab(Name) return CreateTab(Name) end
 
--- Авто-открытие первой вкладки
+SultanLib = {}
+SultanLib.Tab = CreateTab
+
+
 task.spawn(function()
-    task.wait(0.5)
-    if #Tabs > 0 then
-        Tabs[1].Button.MouseButton1Click:Fire()
+    task.wait(0.1)
+    if #Buttons > 0 then
+        Buttons[1].MouseButton1Click:Fire()
     end
 end)
 
-return SultanLib
+
+print("SultanLib загружен — Nursultan Style")
