@@ -1,5 +1,4 @@
 -- SultanLib v5 - Nursultan Minecraft Style 2025
--- Точный дизайн как на скрине: вкладки сверху, тёмный стиль, обводка, тумблеры
 
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
