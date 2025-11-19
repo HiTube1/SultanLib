@@ -1,5 +1,4 @@
 -- SultanLib v5 - Nursultan Minecraft Style 2025
-
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
