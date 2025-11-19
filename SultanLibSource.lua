@@ -1,186 +1,193 @@
--- SultanLib v4 - Максимально надёжная версия (2025)
--- Дизайн 1 в 1 как у тебя в оригинале
--- Никаких крашей, nil-защита, логи, проверки
+-- SultanLib v5 - Nursultan Minecraft Style 2025
+-- Точный дизайн как на скрине: вкладки сверху, тёмный стиль, обводка, тумблеры
 
-local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 
 local Player = Players.LocalPlayer
-if not Player then return end
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local PlayerGui = Player:WaitForChild("PlayerGui", 10)
-if not PlayerGui then warn("PlayerGui не найден") return end
-
--- Главный ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "SultanLib_Reliable"
+ScreenGui.Name = "SultanLib_Nursultan"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999999
 ScreenGui.Parent = PlayerGui
 
-local CurrentZIndex = 10
-local CurrentXOffset = 200  -- начальная позиция как у тебя
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 700, 0, 500)
+MainFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
 
--- Функция драга (надёжная)
-local function MakeDraggable(Frame)
-    local DragFrame = Instance.new("Frame")
-    DragFrame.Size = UDim2.new(1, 0, 0, 50)
-    DragFrame.BackgroundTransparency = 1
-    DragFrame.Parent = Frame
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.Parent = MainFrame
 
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 2
+MainStroke.Color = Color3.fromRGB(80, 120, 255)
+MainStroke.Transparency = 0.3
+MainStroke.Parent = MainFrame
 
-    local function UpdateInput(input)
-        if not dragging then return end
-        local delta = input.Position - dragStart
-        Frame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset +  delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset +  delta.Y
-        )
-    end
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 80, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 180, 255))
+}
+Gradient.Rotation = 90
+Gradient.Parent = MainStroke
 
-    DragFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = Frame.Position
+-- Заголовок
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "SultanLib — Nursultan Edition"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.Parent = MainFrame
 
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
+-- Контейнер вкладок
+local TabButtons = Instance.new("Frame")
+TabButtons.Size = UDim2.new(1, 0, 0, 50)
+TabButtons.Position = UDim2.new(0, 0, 0, 50)
+TabButtons.BackgroundTransparency = 1
+TabButtons.Parent = MainFrame
+
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, 0, 1, -100)
+ContentFrame.Position = UDim2.new(0, 0, 0, 100)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local Tabs = {}
+local CurrentTab = nil
+
+local function CreateTab(Name)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0, 120, 1, 0)
+    Button.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+    Button.Text = Name
+    Button.TextColor3 = Color3.fromRGB(180, 180, 180)
+    Button.Font = Enum.Font.Gotham
+    Button.TextSize = 16
+    Button.Parent = TabButtons
+    Button.Position = UDim2.new(0, (#TabButtons:GetChildren() - 2) * 122, 0, 0)
+
+    local Corner = Instance.new("UICorner", Button)
+    Corner.CornerRadius = UDim.new(0, 8)
+
+    local Content = Instance.new("ScrollingFrame")
+    Content.Size = UDim2.new(1, 0, 1, 0)
+    Content.BackgroundTransparency = 1
+    Content.ScrollBarThickness = 4
+    Content.Visible = false
+    Content.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Content.Parent = ContentFrame
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0, 8)
+    Layout.Parent = Content
+
+    Button.MouseButton1Click:Connect(function()
+        if CurrentTab then CurrentTab.Visible = false end
+        CurrentTab = Content
+        Content.Visible = true
+        for _, btn in pairs(TabButtons:GetChildren()) do
+            if btn:IsA("TextButton") then
+                btn.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+                btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+            end
         end
+        Button.BackgroundColor3 = Color3.fromRGB(80, 120, 255)
+        Button.TextColor3 = Color3.new(1,1,1)
     end)
-
-    DragFrame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-            UpdateInput(input)
-        end
-    end)
-end
-
--- Основная библиотека
-local SultanLib = {}
-
--- Создание окна (вкладки справа)
-function SultanLib:Window(TabName)
-    if not TabName or type(TabName) ~= "string" then TabName = "Tab" end
-
-    CurrentXOffset = CurrentXOffset + 300
-
-    local Frame = Instance.new("Frame")
-    Frame.Name = "Frame Tab " .. TabName
-    Frame.Size = UDim2.new(0, 246, 0, 454)
-    Frame.Position = UDim2.new(0, CurrentXOffset, 0.11208, 0)
-    Frame.BackgroundColor3 = Color3.fromRGB(29, 25, 37)
-    Frame.BackgroundTransparency = 0.2
-    Frame.BorderSizePixel = 0
-    Frame.ZIndex = CurrentZIndex
-    CurrentZIndex = CurrentZIndex + 10
-    Frame.Parent = ScreenGui
-
-    -- Закругления
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 20)
-    Corner.Parent = Frame
-
-    -- Заголовок вкладки
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Name = "Tab name text"
-    TitleLabel.Size = UDim2.new(0, 48, 0, 15)
-    TitleLabel.Position = UDim2.new(0.41663, 0, 0.02173, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = TabName
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.TextSize = 30
-    TitleLabel.Font = Enum.Font.Arial
-    TitleLabel.Parent = Frame
-
-    -- Драг
-    MakeDraggable(Frame)
-
-    -- Контейнер для кнопок
-    local ButtonY = 0.08431  -- точная позиция первой кнопки как у тебя
 
     local Tab = {}
 
-    function Tab:Button(ButtonText, Callback)
-        if type(ButtonText) ~= "string" then ButtonText = "Button" end
-        if type(Callback) ~= "function" then Callback = function() end end
-
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 210, 0, 41)
-        Button.Position = UDim2.new(0.0841, 0, ButtonY, 0)
-        Button.BackgroundColor3 = Color3.fromRGB(29, 25, 37)
-        Button.BackgroundTransparency = 0.15
-        Button.BorderSizePixel = 0
-        Button.Text = " " .. ButtonText
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.TextSize = 19
-        Button.Font = Enum.Font.Arial
-        Button.TextXAlignment = Enum.TextXAlignment.Left
-        Button.ZIndex = Frame.ZIndex + 3
-        Button.Parent = Frame
-
-        local ButtonCorner = Instance.new("UICorner")
-        ButtonCorner.CornerRadius = UDim.new(0, 12)
-        ButtonCorner.Parent = Button
-
-        Button.MouseButton1Click:Connect(function()
-            pcall(Callback)
-        end)
-
-        ButtonY = ButtonY + 0.10132  -- точное расстояние между кнопками как у тебя
+    function Tab:Button(Name, Callback)
+        local Btn = Instance.new("TextButton")
+        Btn.Size = UDim2.new(1, -20, 0, 40)
+        Btn.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+        Btn.Text = "  " .. Name
+        Btn.TextColor3 = Color3.new(1,1,1)
+        Btn.Font = Enum.Font.Gotham
+        Btn.TextXAlignment = "Left"
+        Btn.Parent = Content
+        Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 8)
+        Btn.MouseButton1Click:Connect(Callback or function() end)
+        Content.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
     end
 
+    function Tab:Toggle(Name, Default, Callback)
+        local Toggle = Instance.new("TextButton")
+        Toggle.Size = UDim2.new(1, -20, 0, 40)
+        Toggle.BackgroundColor3 = Color3.fromRGB(25, 25, 45)
+        Toggle.Text = "  " .. Name
+        Toggle.TextColor3 = Color3.new(1,1,1)
+        Toggle.Font = Enum.Font.Gotham
+        Toggle.TextXAlignment = "Left"
+        Toggle.Parent = Content
+
+        local Indicator = Instance.new("Frame")
+        Indicator.Size = UDim2.new(0, 30, 0, 16)
+        Indicator.Position = UDim2.new(1, -40, 0.5, -8)
+        Indicator.BackgroundColor3 = Default and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 60)
+        Indicator.Parent = Toggle
+        Instance.new("UICorner", Indicator).CornerRadius = UDim.new(0, 8)
+
+        local state = Default or false
+        Toggle.MouseButton1Click:Connect(function()
+            state = not state
+            Indicator.BackgroundColor3 = state and Color3.fromRGB(80, 180, 80) or Color3.fromRGB(60, 60, 60)
+            if Callback then Callback(state) end
+        end)
+
+        Instance.new("UICorner", Toggle).CornerRadius = UDim.new(0, 8)
+        Content.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+    end
+
+    function Tab:Slider(Name, Min, Max, Default, Callback)
+        -- можно добавить слайдер (по желанию)
+    end
+
+    table.insert(Tabs, {Button = Button, Content = Content})
     return Tab
 end
 
--- Уведомление (надёжное)
-function SultanLib:Notify(Text, Duration)
-    if not Text then Text = "Notification" end
-    Duration = Duration or 4
-
-    local Notif = Instance.new("Frame")
-    Notif.Size = UDim2.new(0, 300, 0, 80)
-    Notif.Position = UDim2.new(0.5, -150, 0, -100)
-    Notif.BackgroundColor3 = Color3.fromRGB(29, 25, 37)
-    Notif.BackgroundTransparency = 0.2
-    Notif.ZIndex = 999999
-    Notif.Parent = ScreenGui
-
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 16)
-    Corner.Parent = Notif
-
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, 0, 1, 0)
-    Label.BackgroundTransparency = 1
-    Label.Text = Text
-    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Label.TextSize = 22
-    Label.Font = Enum.Font.GothamBold
-    Label.ZIndex = 999999 + 1
-    Label.Parent = Notif
-
-    -- Анимация
-    TweenService:Create(Notif, TweenInfo.new(0.6, Enum.EasingStyle.Back), {Position = UDim2.new(0.5, -150, 0, 120)}):Play()
-    task.wait(Duration)
-    TweenService:Create(Notif, TweenInfo.new(0.5), {Position = UDim2.new(0.5, -150, 0, -100)}):Play()
-    task.wait(0.6)
-    if Notif and Notif.Parent then
-        Notif:Destroy()
+-- Драг
+local Drag = Instance.new("Frame")
+Drag.Size = UDim2.new(1,0,0,50)
+Drag.BackgroundTransparency = 1
+Drag.Parent = MainFrame
+local dragging = false
+local startPos
+Drag.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        startPos = MainFrame.Position
+        i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
     end
 end
+Drag.InputChanged:Connect(function(i)
+    if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = i.Position - (i.Position - MainFrame.Position) wait() -- фикс
+        MainFrame.Position = UDim2.new(0, startPos.X.Offset + (i.Position.X - startPos.X.Offset), 0, startPos.Y.Offset + (i.Position.Y - startPos.Y.Offset))
+    end
+end)
+
+local SultanLib = {}
+function SultanLib:Tab(Name) return CreateTab(Name) end
+
+-- Авто-открытие первой вкладки
+task.spawn(function()
+    task.wait(0.5)
+    if #Tabs > 0 then
+        Tabs[1].Button.MouseButton1Click:Fire()
+    end
+end)
 
 return SultanLib
