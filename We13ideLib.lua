@@ -14,8 +14,8 @@ local We13ideLib = {
             TextSecondary = Color3.fromRGB(140, 130, 160),
             ElementBg = Color3.fromRGB(30, 25, 45),
             Outline = Color3.fromRGB(0, 0, 0),
-            MainTrans = 0.75, -- Изменено на 0.75
-            SectionTrans = 0  -- Секции не прозрачные
+            MainTrans = 0.75,
+            SectionTrans = 0
         }
     },
     ActiveTheme = nil,
@@ -89,7 +89,9 @@ function We13ideLib:Tween(obj, properties, duration, style, direction)
     return tween
 end
 
+-- [ФИКС]: Явно приводим isTrans к false, если он не передан
 function We13ideLib:RegisterTheme(obj, prop, role, isTrans)
+    isTrans = isTrans or false 
     table.insert(self.ThemedElements, {Obj = obj, Prop = prop, Role = role, IsTrans = isTrans})
     if isTrans then
         obj[prop] = self.ActiveTheme[role] or 0
@@ -98,17 +100,17 @@ function We13ideLib:RegisterTheme(obj, prop, role, isTrans)
     end
 end
 
--- ИСПРАВЛЕННЫЙ UPDATE THEME (Real-time изменения и очистка памяти)
+--[ФИКС]: Теперь проверки цвета и прозрачности работают 100% стабильно
 function We13ideLib:UpdateTheme(role, value, isTrans)
+    isTrans = isTrans or false
     self.ActiveTheme[role] = value
     for i = #self.ThemedElements, 1, -1 do
         local item = self.ThemedElements[i]
         if item.Obj and item.Obj.Parent then
             if item.Role == role and item.IsTrans == isTrans then
-                item.Obj[item.Prop] = value -- Моментальное применение для плавного ColorPicker
+                item.Obj[item.Prop] = value 
             end
         else
-            -- Удаляем элементы из памяти, если они были Destroyed
             table.remove(self.ThemedElements, i)
         end
     end
@@ -998,7 +1000,6 @@ function We13ideLib:CreateWindow(options)
             DButton.MouseLeave:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
             DButton.MouseButton1Down:Connect(function() We13ideLib:Tween(DropScale, {Scale = 0.9}, 0.1, Enum.EasingStyle.Quad) end)
             DButton.MouseButton1Up:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1.05}, 0.4, Enum.EasingStyle.Back) end)
-
             local ListFrame = Instance.new("Frame", DropdownFrame)
             ListFrame.Size = UDim2.new(0.5, 0, 0, 0)
             ListFrame.Position = UDim2.new(0.5, 0, 0, 30)
