@@ -19,7 +19,8 @@ local We13ideLib = {
         }
     },
     ActiveTheme = nil,
-    ThemedElements = {}
+    ThemedElements = {},
+    ActiveWindowObj = nil
 }
 
 local TweenService = game:GetService("TweenService")
@@ -89,29 +90,43 @@ function We13ideLib:Tween(obj, properties, duration, style, direction)
     return tween
 end
 
--- [ФИКС]: Явно приводим isTrans к false, если он не передан
+-- [ФИКС]: 100% безопасная регистрация (без багов с Lua-булинями)
 function We13ideLib:RegisterTheme(obj, prop, role, isTrans)
-    isTrans = isTrans or false 
-    table.insert(self.ThemedElements, {Obj = obj, Prop = prop, Role = role, IsTrans = isTrans})
-    if isTrans then
+    local isTransparency = (isTrans == true)
+    table.insert(self.ThemedElements, {Obj = obj, Prop = prop, Role = role, IsTrans = isTransparency})
+    
+    if isTransparency then
         obj[prop] = self.ActiveTheme[role] or 0
     else
         obj[prop] = self.ActiveTheme[role] or Color3.new(1,1,1)
     end
 end
 
---[ФИКС]: Теперь проверки цвета и прозрачности работают 100% стабильно
+--[ФИКС]: Восстановление цветов активной вкладки после обновления темы
 function We13ideLib:UpdateTheme(role, value, isTrans)
-    isTrans = isTrans or false
+    local isTransparency = (isTrans == true)
     self.ActiveTheme[role] = value
+    
     for i = #self.ThemedElements, 1, -1 do
         local item = self.ThemedElements[i]
         if item.Obj and item.Obj.Parent then
-            if item.Role == role and item.IsTrans == isTrans then
+            if item.Role == role and item.IsTrans == isTransparency then
                 item.Obj[item.Prop] = value 
             end
         else
             table.remove(self.ThemedElements, i)
+        end
+    end
+    
+    -- Защита от затемнения активной вкладки
+    if role == "TextSecondary" or role == "Accent" or role == "TextPrimary" then
+        if self.ActiveWindowObj then
+            for _, t in pairs(self.ActiveWindowObj.Tabs) do
+                if not t.IsDestroyed and t.Active then
+                    if t.Icon then t.Icon.ImageColor3 = self.ActiveTheme.Accent end
+                    if t.Text then t.Text.TextColor3 = self.ActiveTheme.TextPrimary end
+                end
+            end
         end
     end
 end
@@ -122,6 +137,7 @@ function We13ideLib:CreateWindow(options)
     local WindowName = options.Title or "WEXSIDE"
     
     local WindowObj = { Tabs = {}, SearchableSections = {}, IsLoaded = false }
+    self.ActiveWindowObj = WindowObj
 
     local ScreenGui = Instance.new("ScreenGui", GetParent())
     ScreenGui.Name = "We13ideCore_" .. WindowName
