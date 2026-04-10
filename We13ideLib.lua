@@ -1,9 +1,9 @@
 -- We13ideLib Source Code for Xeno Executor
 -- Elite Neon Night UI, Glowing Tabs, Smart Search, Animated Stars, Configs, Notifications, Deletion
--- Smooth Animations, Splash Screen, Mobile Support, Keybinds, Multi-Dropdowns & Dividers
+-- Smooth Animations, Splash Screen, Mobile Support, Keybinds, Multi-Dropdowns, Dynamic Creation
 
 local We13ideLib = {
-    Version = "2.8.0",
+    Version = "2.9.0",
     Themes = {
         NeonNight = {
             MainBackground = Color3.fromRGB(18, 14, 28),
@@ -14,8 +14,8 @@ local We13ideLib = {
             TextSecondary = Color3.fromRGB(140, 130, 160),
             ElementBg = Color3.fromRGB(30, 25, 45),
             Outline = Color3.fromRGB(0, 0, 0),
-            MainTrans = 0.3,
-            SectionTrans = 0 -- Секции не прозрачные по умолчанию
+            MainTrans = 0.75, -- Изменено на 0.75
+            SectionTrans = 0  -- Секции не прозрачные
         }
     },
     ActiveTheme = nil,
@@ -98,11 +98,18 @@ function We13ideLib:RegisterTheme(obj, prop, role, isTrans)
     end
 end
 
+-- ИСПРАВЛЕННЫЙ UPDATE THEME (Real-time изменения и очистка памяти)
 function We13ideLib:UpdateTheme(role, value, isTrans)
     self.ActiveTheme[role] = value
-    for _, item in ipairs(self.ThemedElements) do
-        if item.Obj.Parent and item.Role == role and item.IsTrans == isTrans then
-            self:Tween(item.Obj, {[item.Prop] = value}, 0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+    for i = #self.ThemedElements, 1, -1 do
+        local item = self.ThemedElements[i]
+        if item.Obj and item.Obj.Parent then
+            if item.Role == role and item.IsTrans == isTrans then
+                item.Obj[item.Prop] = value -- Моментальное применение для плавного ColorPicker
+            end
+        else
+            -- Удаляем элементы из памяти, если они были Destroyed
+            table.remove(self.ThemedElements, i)
         end
     end
 end
@@ -122,7 +129,7 @@ function We13ideLib:CreateWindow(options)
     MainFrame.Size = UDim2.new(0, 850, 0, 560)
     MainFrame.Position = UDim2.new(0.5, -425, 0.5, -280)
     MainFrame.BorderSizePixel = 0
-    MainFrame.Visible = false -- Скрыто до окончания сплеш-скрина
+    MainFrame.Visible = false 
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
     self:RegisterTheme(MainFrame, "BackgroundColor3", "MainBackground")
     self:RegisterTheme(MainFrame, "BackgroundTransparency", "MainTrans", true)
@@ -161,15 +168,13 @@ function We13ideLib:CreateWindow(options)
     local SplashScale = Instance.new("UIScale", SplashFrame)
     SplashScale.Scale = 0.5
 
-    -- Анимация появления Сплеш скрина
     task.spawn(function()
         We13ideLib:Tween(SplashScale, {Scale = 1}, 0.8, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
         We13ideLib:Tween(SplashIcon, {ImageTransparency = 0}, 0.5)
         We13ideLib:Tween(SplashText, {TextTransparency = 0}, 0.5)
 
-        task.wait(2) -- Ожидание 2 секунды
+        task.wait(2) 
 
-        -- Анимация исчезновения
         We13ideLib:Tween(SplashScale, {Scale = 1.2}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         We13ideLib:Tween(SplashIcon, {ImageTransparency = 1}, 0.5)
         local twn = We13ideLib:Tween(SplashText, {TextTransparency = 1}, 0.5)
@@ -177,14 +182,12 @@ function We13ideLib:CreateWindow(options)
 
         SplashFrame:Destroy()
         
-        -- Появление основного интерфейса
         WindowObj.IsLoaded = true
         if isVisible then
             MainFrame.Visible = true
             We13ideLib:Tween(MainScale, {Scale = 1}, 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
         
-        -- Появление мобильной кнопки (если телефон)
         if UserInputService.TouchEnabled then
             local MobileBtn = Instance.new("ImageButton", ScreenGui)
             MobileBtn.Size = UDim2.new(0, 46, 0, 46)
@@ -279,7 +282,6 @@ function We13ideLib:CreateWindow(options)
         end)
     end
     
-    -- JELLY DRAGGING
     local dragging, dragStart, startPos
     MainFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 and input.Position.Y < MainFrame.AbsolutePosition.Y + 60 then
@@ -489,11 +491,9 @@ function We13ideLib:CreateWindow(options)
         NContentLabel.TextWrapped = true
         We13ideLib:RegisterTheme(NContentLabel, "TextColor3", "TextSecondary")
 
-        -- Bouncy Animate In
         We13ideLib:Tween(NScale, {Scale = 1}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         We13ideLib:Tween(NFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
-        -- Animate Out & Destroy
         task.spawn(function()
             task.wait(NDuration)
             if NFrame and NFrame.Parent then
@@ -1432,7 +1432,6 @@ function We13ideLib:CreateWindow(options)
                 SearchInput.Text = ""
             end
 
-            -- Smooth, non-shaking push effect for the tab button
             TabScale.Scale = 0.9
             We13ideLib:Tween(TabScale, {Scale = 1}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
@@ -1496,7 +1495,6 @@ function We13ideLib:CreateWindow(options)
             SecTitle.TextXAlignment = Enum.TextXAlignment.Left
             We13ideLib:RegisterTheme(SecTitle, "TextColor3", "TextPrimary")
 
-            -- Jelly section expansion
             SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 We13ideLib:Tween(SectionFrame, {Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 24)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             end)
