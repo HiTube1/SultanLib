@@ -1,9 +1,9 @@
--- We13ideLib Source Code for Xeno Executor
+-- We13ideLib Source Code for Xeno Executor (Updated & Optimized)
 -- Elite Neon Night UI, Glowing Tabs, Smart Search, Animated Stars, Configs, Notifications, Deletion
--- Smooth Animations, Splash Screen, Mobile Support, Keybinds, Multi-Dropdowns, Dynamic Creation
+-- Тултипы, Саб-табы, Ресайз, Контекстные меню, Скроллбары, Редактор, Консоль, Вотермарка, Оптимизация
 
 local We13ideLib = {
-    Version = "2.9.0",
+    Version = "3.0.0",
     Themes = {
         NeonNight = {
             MainBackground = Color3.fromRGB(18, 14, 28),
@@ -14,20 +14,21 @@ local We13ideLib = {
             TextSecondary = Color3.fromRGB(140, 130, 160),
             ElementBg = Color3.fromRGB(30, 25, 45),
             Outline = Color3.fromRGB(0, 0, 0),
-            MainTrans = 0.75,
+            MainTrans = 0.85,
             SectionTrans = 0
         }
     },
     ActiveTheme = nil,
-    ThemedElements = {},
-    ActiveWindowObj = nil
+    ThemedElements = {}
 }
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
+local Stats = game:GetService("Stats")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 
 -- File System Setup
@@ -90,43 +91,27 @@ function We13ideLib:Tween(obj, properties, duration, style, direction)
     return tween
 end
 
--- [ФИКС]: 100% безопасная регистрация (без багов с Lua-булинями)
 function We13ideLib:RegisterTheme(obj, prop, role, isTrans)
-    local isTransparency = (isTrans == true)
-    table.insert(self.ThemedElements, {Obj = obj, Prop = prop, Role = role, IsTrans = isTransparency})
-    
-    if isTransparency then
+    isTrans = isTrans or false 
+    table.insert(self.ThemedElements, {Obj = obj, Prop = prop, Role = role, IsTrans = isTrans})
+    if isTrans then
         obj[prop] = self.ActiveTheme[role] or 0
     else
         obj[prop] = self.ActiveTheme[role] or Color3.new(1,1,1)
     end
 end
 
---[ФИКС]: Восстановление цветов активной вкладки после обновления темы
 function We13ideLib:UpdateTheme(role, value, isTrans)
-    local isTransparency = (isTrans == true)
+    isTrans = isTrans or false
     self.ActiveTheme[role] = value
-    
     for i = #self.ThemedElements, 1, -1 do
         local item = self.ThemedElements[i]
         if item.Obj and item.Obj.Parent then
-            if item.Role == role and item.IsTrans == isTransparency then
+            if item.Role == role and item.IsTrans == isTrans then
                 item.Obj[item.Prop] = value 
             end
         else
             table.remove(self.ThemedElements, i)
-        end
-    end
-    
-    -- Защита от затемнения активной вкладки
-    if role == "TextSecondary" or role == "Accent" or role == "TextPrimary" then
-        if self.ActiveWindowObj then
-            for _, t in pairs(self.ActiveWindowObj.Tabs) do
-                if not t.IsDestroyed and t.Active then
-                    if t.Icon then t.Icon.ImageColor3 = self.ActiveTheme.Accent end
-                    if t.Text then t.Text.TextColor3 = self.ActiveTheme.TextPrimary end
-                end
-            end
         end
     end
 end
@@ -137,11 +122,11 @@ function We13ideLib:CreateWindow(options)
     local WindowName = options.Title or "WEXSIDE"
     
     local WindowObj = { Tabs = {}, SearchableSections = {}, IsLoaded = false }
-    self.ActiveWindowObj = WindowObj
 
     local ScreenGui = Instance.new("ScreenGui", GetParent())
     ScreenGui.Name = "We13ideCore_" .. WindowName
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local MainFrame = Instance.new("Frame", ScreenGui)
     MainFrame.Size = UDim2.new(0, 850, 0, 560)
@@ -156,8 +141,9 @@ function We13ideLib:CreateWindow(options)
     MainScale.Scale = 0
 
     local isVisible = true
+    local resolvedLogo = We13ideLib:ResolveIcon(options.LogoIcon, WindowName)
 
-    -- ================= ВОТЕРМАРКА (SPLASH SCREEN) =================
+    -- ================= ВОТЕРМАРКА (SPLASH И GLOBAL) =================
     local SplashFrame = Instance.new("Frame", ScreenGui)
     SplashFrame.Size = UDim2.new(0, 300, 0, 150)
     SplashFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
@@ -169,8 +155,7 @@ function We13ideLib:CreateWindow(options)
     SplashIcon.Position = UDim2.new(0.5, -40, 0, 10)
     SplashIcon.BackgroundTransparency = 1
     SplashIcon.ImageTransparency = 1
-    local resolvedLogoForSplash = We13ideLib:ResolveIcon(options.LogoIcon, WindowName)
-    if resolvedLogoForSplash ~= "" then SplashIcon.Image = resolvedLogoForSplash end
+    if resolvedLogo ~= "" then SplashIcon.Image = resolvedLogo end
     self:RegisterTheme(SplashIcon, "ImageColor3", "Accent")
     
     local SplashText = Instance.new("TextLabel", SplashFrame)
@@ -186,18 +171,132 @@ function We13ideLib:CreateWindow(options)
     local SplashScale = Instance.new("UIScale", SplashFrame)
     SplashScale.Scale = 0.5
 
+    local splashConnection
+    splashConnection = RunService.RenderStepped:Connect(function(dt)
+        if SplashIcon.Parent then
+            SplashIcon.Rotation = SplashIcon.Rotation + (120 * dt)
+        else
+            splashConnection:Disconnect()
+        end
+    end)
+
+    -- Static Watermark
+    local WMFrame = Instance.new("Frame", ScreenGui)
+    WMFrame.Size = UDim2.new(0, 220, 0, 30)
+    WMFrame.Position = UDim2.new(0, 20, 0, 20)
+    Instance.new("UICorner", WMFrame).CornerRadius = UDim.new(0, 6)
+    self:RegisterTheme(WMFrame, "BackgroundColor3", "Section")
+    local WMStroke = Instance.new("UIStroke", WMFrame)
+    WMStroke.Thickness = 1.5
+    self:RegisterTheme(WMStroke, "Color", "Accent")
+    
+    local WMIcon = Instance.new("ImageLabel", WMFrame)
+    WMIcon.Size = UDim2.new(0, 18, 0, 18)
+    WMIcon.Position = UDim2.new(0, 8, 0.5, -9)
+    WMIcon.BackgroundTransparency = 1
+    if resolvedLogo ~= "" then WMIcon.Image = resolvedLogo else WMIcon.Image = "rbxassetid://10014844383" end
+    self:RegisterTheme(WMIcon, "ImageColor3", "Accent")
+
+    local WMText = Instance.new("TextLabel", WMFrame)
+    WMText.Size = UDim2.new(1, -35, 1, 0)
+    WMText.Position = UDim2.new(0, 32, 0, 0)
+    WMText.BackgroundTransparency = 1
+    WMText.Font = Enum.Font.GothamBold
+    WMText.TextSize = 12
+    WMText.TextXAlignment = Enum.TextXAlignment.Left
+    self:RegisterTheme(WMText, "TextColor3", "TextPrimary")
+
+    RunService.RenderStepped:Connect(function(dt)
+        WMIcon.Rotation = WMIcon.Rotation + (90 * dt)
+        local fps = math.floor(1/dt)
+        local ping = 0
+        pcall(function() ping = string.split(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString(), " ")[1] end)
+        WMText.Text = "We13ideLib | FPS: " .. fps .. " | Ping: " .. (ping or 0) .. "ms"
+    end)
+
+    -- Tooltips
+    local TooltipFrame = Instance.new("Frame", ScreenGui)
+    TooltipFrame.Size = UDim2.new(0, 100, 0, 24)
+    TooltipFrame.Visible = false
+    TooltipFrame.ZIndex = 100
+    Instance.new("UICorner", TooltipFrame).CornerRadius = UDim.new(0, 4)
+    self:RegisterTheme(TooltipFrame, "BackgroundColor3", "ElementBg")
+    local TooltipStroke = Instance.new("UIStroke", TooltipFrame)
+    self:RegisterTheme(TooltipStroke, "Color", "Accent")
+    
+    local TooltipText = Instance.new("TextLabel", TooltipFrame)
+    TooltipText.Size = UDim2.new(1, -10, 1, 0)
+    TooltipText.Position = UDim2.new(0, 5, 0, 0)
+    TooltipText.BackgroundTransparency = 1
+    TooltipText.Font = Enum.Font.GothamMedium
+    TooltipText.TextSize = 11
+    self:RegisterTheme(TooltipText, "TextColor3", "TextPrimary")
+
+    -- Context Menu
+    local ContextMenu = Instance.new("Frame", ScreenGui)
+    ContextMenu.Size = UDim2.new(0, 120, 0, 0)
+    ContextMenu.Visible = false
+    ContextMenu.ZIndex = 150
+    ContextMenu.ClipsDescendants = true
+    Instance.new("UICorner", ContextMenu).CornerRadius = UDim.new(0, 6)
+    self:RegisterTheme(ContextMenu, "BackgroundColor3", "Section")
+    local ContextStroke = Instance.new("UIStroke", ContextMenu)
+    self:RegisterTheme(ContextStroke, "Color", "Accent")
+    local ContextLayout = Instance.new("UIListLayout", ContextMenu)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            ContextMenu.Visible = false
+        end
+    end)
+
+    local function BindContextMenu(widget, actions)
+        widget.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then
+                for _, c in ipairs(ContextMenu:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+                local y = 0
+                for _, action in ipairs(actions) do
+                    local btn = Instance.new("TextButton", ContextMenu)
+                    btn.Size = UDim2.new(1, 0, 0, 24)
+                    btn.BackgroundTransparency = 1
+                    btn.Text = action.Name
+                    btn.Font = Enum.Font.Gotham
+                    btn.TextSize = 11
+                    self:RegisterTheme(btn, "TextColor3", "TextSecondary")
+                    btn.MouseEnter:Connect(function() We13ideLib:Tween(btn, {TextColor3 = We13ideLib.ActiveTheme.Accent}, 0.2) end)
+                    btn.MouseLeave:Connect(function() We13ideLib:Tween(btn, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.2) end)
+                    btn.MouseButton1Click:Connect(function() action.Callback(); ContextMenu.Visible = false end)
+                    y = y + 24
+                end
+                ContextMenu.Size = UDim2.new(0, 120, 0, y)
+                ContextMenu.Position = UDim2.new(0, UserInputService:GetMouseLocation().X, 0, UserInputService:GetMouseLocation().Y - 36)
+                ContextMenu.Visible = true
+            end
+        end)
+    end
+
+    local function ApplyTooltip(itemObj, widget, text)
+        if not text or text == "" then return end
+        table.insert(itemObj.Connections, widget.MouseEnter:Connect(function()
+            TooltipText.Text = text
+            TooltipFrame.Size = UDim2.new(0, TooltipText.TextBounds.X + 16, 0, 24)
+            TooltipFrame.Visible = true
+        end))
+        table.insert(itemObj.Connections, widget.MouseLeave:Connect(function() TooltipFrame.Visible = false end))
+        table.insert(itemObj.Connections, widget.MouseMoved:Connect(function(x, y)
+            TooltipFrame.Position = UDim2.new(0, x + 15, 0, y + 15)
+        end))
+    end
+
     task.spawn(function()
         We13ideLib:Tween(SplashScale, {Scale = 1}, 0.8, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
         We13ideLib:Tween(SplashIcon, {ImageTransparency = 0}, 0.5)
         We13ideLib:Tween(SplashText, {TextTransparency = 0}, 0.5)
-
-        task.wait(2) 
-
+        task.wait(2.5) 
         We13ideLib:Tween(SplashScale, {Scale = 1.2}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         We13ideLib:Tween(SplashIcon, {ImageTransparency = 1}, 0.5)
         local twn = We13ideLib:Tween(SplashText, {TextTransparency = 1}, 0.5)
         twn.Completed:Wait()
-
         SplashFrame:Destroy()
         
         WindowObj.IsLoaded = true
@@ -205,72 +304,7 @@ function We13ideLib:CreateWindow(options)
             MainFrame.Visible = true
             We13ideLib:Tween(MainScale, {Scale = 1}, 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end
-        
-        if UserInputService.TouchEnabled then
-            local MobileBtn = Instance.new("ImageButton", ScreenGui)
-            MobileBtn.Size = UDim2.new(0, 46, 0, 46)
-            MobileBtn.Position = UDim2.new(0.5, -23, 0, 10)
-            MobileBtn.AutoButtonColor = false
-            MobileBtn.ZIndex = 300
-            Instance.new("UICorner", MobileBtn).CornerRadius = UDim.new(1, 0)
-            We13ideLib:RegisterTheme(MobileBtn, "BackgroundColor3", "MainBackground")
-            
-            local MScale = Instance.new("UIScale", MobileBtn)
-            MScale.Scale = 0
-            
-            local MStroke = Instance.new("UIStroke", MobileBtn)
-            MStroke.Thickness = 1.5
-            We13ideLib:RegisterTheme(MStroke, "Color", "Accent")
-
-            if options.LogoIcon and options.LogoIcon ~= "" then
-                local MIcon = Instance.new("ImageLabel", MobileBtn)
-                MIcon.Size = UDim2.new(0, 24, 0, 24)
-                MIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-                MIcon.Position = UDim2.new(0.5, 0, 0.5, 0)
-                MIcon.BackgroundTransparency = 1
-                MIcon.Image = We13ideLib:ResolveIcon(options.LogoIcon, WindowName)
-                We13ideLib:RegisterTheme(MIcon, "ImageColor3", "Accent")
-            end
-
-            We13ideLib:Tween(MScale, {Scale = 1}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
-            local mDragging, mDragStart, mStartPos, dragMoved
-            MobileBtn.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mDragging = true
-                    dragMoved = false
-                    mDragStart = input.Position
-                    mStartPos = MobileBtn.Position
-                    We13ideLib:Tween(MScale, {Scale = 0.9}, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-                end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
-                if mDragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-                    local delta = input.Position - mDragStart
-                    if delta.Magnitude > 5 then dragMoved = true end
-                    MobileBtn.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y)
-                end
-            end)
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    mDragging = false
-                    We13ideLib:Tween(MScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    if not dragMoved and WindowObj.IsLoaded then
-                        isVisible = not isVisible
-                        if isVisible then
-                            MainFrame.Visible = true
-                            We13ideLib:Tween(MainScale, {Scale = 1}, 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                        else
-                            We13ideLib:Tween(MainScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Connect(function()
-                                if not isVisible then MainFrame.Visible = false end
-                            end)
-                        end
-                    end
-                end
-            end)
-        end
     end)
-    -- ===============================================================
     
     local StarsFrame = Instance.new("Frame", MainFrame)
     StarsFrame.Size = UDim2.new(1, 0, 1, 0)
@@ -288,7 +322,6 @@ function We13ideLib:CreateWindow(options)
         self:RegisterTheme(star, "ImageColor3", "Accent")
         star.ImageTransparency = math.random(30, 90) / 100
         star.ZIndex = 0
-        
         task.spawn(function()
             while star and star.Parent do
                 We13ideLib:Tween(star, {ImageTransparency = math.random(10, 40)/100}, math.random(2, 4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
@@ -300,9 +333,10 @@ function We13ideLib:CreateWindow(options)
         end)
     end
     
+    -- Window Dragger
     local dragging, dragStart, startPos
     MainFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and input.Position.Y < MainFrame.AbsolutePosition.Y + 60 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and input.Position.Y < MainFrame.AbsolutePosition.Y + 60 and input.Position.X < MainFrame.AbsolutePosition.X + MainFrame.AbsoluteSize.X - 30 then
             dragging = true; dragStart = input.Position; startPos = MainFrame.Position
             We13ideLib:Tween(MainScale, {Scale = 0.98}, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
         end
@@ -314,15 +348,40 @@ function We13ideLib:CreateWindow(options)
         end
     end)
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then 
-            dragging = false 
-            We13ideLib:Tween(MainScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false; We13ideLib:Tween(MainScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end
+    end)
+
+    -- Window Resizer
+    local Resizer = Instance.new("TextButton", MainFrame)
+    Resizer.Size = UDim2.new(0, 20, 0, 20)
+    Resizer.Position = UDim2.new(1, -20, 1, -20)
+    Resizer.BackgroundTransparency = 1
+    Resizer.Text = "◢"
+    Resizer.Font = Enum.Font.GothamBold
+    Resizer.TextSize = 12
+    Resizer.ZIndex = 50
+    self:RegisterTheme(Resizer, "TextColor3", "TextSecondary")
+
+    local resizing, resizeStart, sizeStart
+    Resizer.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            resizing = true; resizeStart = input.Position; sizeStart = MainFrame.Size
         end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - resizeStart
+            local newX = math.clamp(sizeStart.X.Offset + delta.X, 600, 1200)
+            local newY = math.clamp(sizeStart.Y.Offset + delta.Y, 400, 800)
+            MainFrame.Size = UDim2.new(0, newX, 0, newY)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then resizing = false end
     end)
 
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 220, 1, 0)
-    Sidebar.BackgroundTransparency = 0
     Sidebar.ZIndex = 2
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 12)
     self:RegisterTheme(Sidebar, "BackgroundColor3", "Sidebar")
@@ -330,7 +389,6 @@ function We13ideLib:CreateWindow(options)
     local HideCorner = Instance.new("Frame", Sidebar)
     HideCorner.Size = UDim2.new(0, 15, 1, 0)
     HideCorner.Position = UDim2.new(1, -15, 0, 0)
-    HideCorner.BackgroundTransparency = 0
     HideCorner.BorderSizePixel = 0
     HideCorner.ZIndex = 2
     self:RegisterTheme(HideCorner, "BackgroundColor3", "Sidebar")
@@ -339,9 +397,8 @@ function We13ideLib:CreateWindow(options)
     LogoIcon.Size = UDim2.new(0, 24, 0, 24)
     LogoIcon.Position = UDim2.new(0, 20, 0, 20)
     LogoIcon.BackgroundTransparency = 1
-    LogoIcon.ImageColor3 = Theme.Accent
     LogoIcon.ZIndex = 3
-    if resolvedLogoForSplash ~= "" then LogoIcon.Image = resolvedLogoForSplash end
+    if resolvedLogo ~= "" then LogoIcon.Image = resolvedLogo end
     self:RegisterTheme(LogoIcon, "ImageColor3", "Accent")
 
     local LogoText = Instance.new("TextLabel", Sidebar)
@@ -355,50 +412,14 @@ function We13ideLib:CreateWindow(options)
     LogoText.ZIndex = 3
     self:RegisterTheme(LogoText, "TextColor3", "TextPrimary")
 
-    local ProfileFrame = Instance.new("Frame", Sidebar)
-    ProfileFrame.Size = UDim2.new(1, -40, 0, 40)
-    ProfileFrame.Position = UDim2.new(0, 20, 0, 70)
-    ProfileFrame.BackgroundTransparency = 1
-    ProfileFrame.ZIndex = 3
-
-    local Avatar = Instance.new("ImageLabel", ProfileFrame)
-    Avatar.Size = UDim2.new(0, 30, 0, 30)
-    Avatar.Position = UDim2.new(0, 0, 0.5, -15)
-    Avatar.BackgroundTransparency = 1
-    Avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150"
-    Avatar.ZIndex = 3
-    Instance.new("UICorner", Avatar).CornerRadius = UDim.new(1, 0)
-
-    local UserName = Instance.new("TextLabel", ProfileFrame)
-    UserName.Text = LocalPlayer.DisplayName
-    UserName.Font = Enum.Font.GothamBold
-    UserName.TextSize = 13
-    UserName.BackgroundTransparency = 1
-    UserName.Position = UDim2.new(0, 40, 0, 2)
-    UserName.Size = UDim2.new(1, -40, 0, 15)
-    UserName.TextXAlignment = Enum.TextXAlignment.Left
-    UserName.ZIndex = 3
-    self:RegisterTheme(UserName, "TextColor3", "TextPrimary")
-
-    local SubRole = Instance.new("TextLabel", ProfileFrame)
-    SubRole.Text = options.ProfileSub or "Elite User"
-    SubRole.Font = Enum.Font.Gotham
-    SubRole.TextSize = 11
-    SubRole.BackgroundTransparency = 1
-    SubRole.Position = UDim2.new(0, 40, 0, 18)
-    SubRole.Size = UDim2.new(1, -40, 0, 15)
-    SubRole.TextXAlignment = Enum.TextXAlignment.Left
-    SubRole.ZIndex = 3
-    self:RegisterTheme(SubRole, "TextColor3", "TextSecondary")
-
     local TabsContainer = Instance.new("ScrollingFrame", Sidebar)
     TabsContainer.Size = UDim2.new(1, 0, 1, -170)
     TabsContainer.Position = UDim2.new(0, 0, 0, 130)
     TabsContainer.BackgroundTransparency = 1
-    TabsContainer.ScrollBarThickness = 0
+    TabsContainer.ScrollBarThickness = 3
+    self:RegisterTheme(TabsContainer, "ScrollBarImageColor3", "Accent")
     TabsContainer.ZIndex = 3
     local TabsListLayout = Instance.new("UIListLayout", TabsContainer)
-    
     TabsListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         TabsContainer.CanvasSize = UDim2.new(0, 0, 0, TabsListLayout.AbsoluteContentSize.Y + 10)
     end)
@@ -415,32 +436,17 @@ function We13ideLib:CreateWindow(options)
     SearchBoxBg.ZIndex = 3
     Instance.new("UICorner", SearchBoxBg).CornerRadius = UDim.new(0, 6)
     self:RegisterTheme(SearchBoxBg, "BackgroundColor3", "ElementBg")
-    
     local SearchScale = Instance.new("UIScale", SearchBoxBg)
-
-    local SearchIcon = Instance.new("ImageLabel", SearchBoxBg)
-    SearchIcon.Size = UDim2.new(0, 14, 0, 14)
-    SearchIcon.Position = UDim2.new(0, 10, 0.5, -7)
-    SearchIcon.BackgroundTransparency = 1
-    SearchIcon.Image = "rbxassetid://10014844383"
-    SearchIcon.ZIndex = 3
-    self:RegisterTheme(SearchIcon, "ImageColor3", "TextSecondary")
 
     local SearchInput = Instance.new("TextBox", SearchBoxBg)
     SearchInput.Size = UDim2.new(1, -35, 1, 0)
     SearchInput.Position = UDim2.new(0, 30, 0, 0)
     SearchInput.BackgroundTransparency = 1
-    SearchInput.Text = ""
     SearchInput.PlaceholderText = "Search features..."
     SearchInput.Font = Enum.Font.Gotham
     SearchInput.TextSize = 12
     SearchInput.TextXAlignment = Enum.TextXAlignment.Left
-    SearchInput.ZIndex = 3
     self:RegisterTheme(SearchInput, "TextColor3", "TextPrimary")
-    self:RegisterTheme(SearchInput, "PlaceholderColor3", "TextSecondary")
-
-    SearchInput.Focused:Connect(function() We13ideLib:Tween(SearchScale, {Scale = 1.05}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
-    SearchInput.FocusLost:Connect(function() We13ideLib:Tween(SearchScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out) end)
 
     local PagesContainer = Instance.new("Frame", MainFrame)
     PagesContainer.Size = UDim2.new(1, -220, 1, -60)
@@ -448,7 +454,7 @@ function We13ideLib:CreateWindow(options)
     PagesContainer.BackgroundTransparency = 1
     PagesContainer.ZIndex = 2
 
-    -- ================= НОВАЯ СИСТЕМА УВЕДОМЛЕНИЙ =================
+    -- Notifications System
     local NotifContainer = Instance.new("Frame", ScreenGui)
     NotifContainer.Size = UDim2.new(0, 280, 1, -40)
     NotifContainer.Position = UDim2.new(1, -300, 0, 20)
@@ -460,64 +466,39 @@ function We13ideLib:CreateWindow(options)
     NotifLayout.Padding = UDim.new(0, 10)
 
     function WindowObj:Notify(nInfo)
-        local NTitle = nInfo.Title or "Notification"
-        local NText = nInfo.Content or ""
-        local NDuration = nInfo.Duration or 3
-
         local NFrame = Instance.new("Frame", NotifContainer)
         NFrame.Size = UDim2.new(1, 0, 0, 60)
-        NFrame.BackgroundTransparency = 0.3
         NFrame.Position = UDim2.new(1, 300, 0, 0)
         Instance.new("UICorner", NFrame).CornerRadius = UDim.new(0, 8)
         We13ideLib:RegisterTheme(NFrame, "BackgroundColor3", "ElementBg")
-        
         local NScale = Instance.new("UIScale", NFrame)
         NScale.Scale = 0.5
-
-        local NAccent = Instance.new("Frame", NFrame)
-        NAccent.Size = UDim2.new(0, 4, 1, -12)
-        NAccent.Position = UDim2.new(0, 6, 0, 6)
-        Instance.new("UICorner", NAccent).CornerRadius = UDim.new(1, 0)
-        We13ideLib:RegisterTheme(NAccent, "BackgroundColor3", "Accent")
-
-        local NIcon = Instance.new("ImageLabel", NFrame)
-        NIcon.Size = UDim2.new(0, 20, 0, 20)
-        NIcon.Position = UDim2.new(0, 18, 0, 10)
-        NIcon.BackgroundTransparency = 1
-        NIcon.Image = "rbxassetid://10014844383" 
-        if nInfo.Icon then NIcon.Image = We13ideLib:ResolveIcon(nInfo.Icon, WindowName) end
-        We13ideLib:RegisterTheme(NIcon, "ImageColor3", "Accent")
-
         local NTitleLabel = Instance.new("TextLabel", NFrame)
-        NTitleLabel.Size = UDim2.new(1, -50, 0, 20)
-        NTitleLabel.Position = UDim2.new(0, 45, 0, 10)
+        NTitleLabel.Size = UDim2.new(1, -20, 0, 20)
+        NTitleLabel.Position = UDim2.new(0, 10, 0, 10)
         NTitleLabel.BackgroundTransparency = 1
-        NTitleLabel.Text = NTitle
+        NTitleLabel.Text = nInfo.Title or "Notification"
         NTitleLabel.Font = Enum.Font.GothamBold
         NTitleLabel.TextSize = 13
         NTitleLabel.TextXAlignment = Enum.TextXAlignment.Left
         We13ideLib:RegisterTheme(NTitleLabel, "TextColor3", "TextPrimary")
-
         local NContentLabel = Instance.new("TextLabel", NFrame)
-        NContentLabel.Size = UDim2.new(1, -50, 0, 20)
-        NContentLabel.Position = UDim2.new(0, 45, 0, 30)
+        NContentLabel.Size = UDim2.new(1, -20, 0, 20)
+        NContentLabel.Position = UDim2.new(0, 10, 0, 30)
         NContentLabel.BackgroundTransparency = 1
-        NContentLabel.Text = NText
+        NContentLabel.Text = nInfo.Content or ""
         NContentLabel.Font = Enum.Font.Gotham
         NContentLabel.TextSize = 11
         NContentLabel.TextXAlignment = Enum.TextXAlignment.Left
-        NContentLabel.TextWrapped = true
         We13ideLib:RegisterTheme(NContentLabel, "TextColor3", "TextSecondary")
-
+        
         We13ideLib:Tween(NScale, {Scale = 1}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         We13ideLib:Tween(NFrame, {Position = UDim2.new(0, 0, 0, 0)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
         task.spawn(function()
-            task.wait(NDuration)
+            task.wait(nInfo.Duration or 3)
             if NFrame and NFrame.Parent then
                 We13ideLib:Tween(NScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-                local outTween = We13ideLib:Tween(NFrame, {Position = UDim2.new(1, 300, 0, 0)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-                outTween.Completed:Wait()
+                We13ideLib:Tween(NFrame, {Position = UDim2.new(1, 300, 0, 0)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Wait()
                 NFrame:Destroy()
             end
         end)
@@ -530,18 +511,18 @@ function We13ideLib:CreateWindow(options)
 
     function WindowObj:Close()
         if ScreenGui then
-            local twn = We13ideLib:Tween(MainScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-            twn.Completed:Connect(function()
+            We13ideLib:Tween(MainScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Connect(function()
                 ScreenGui:Destroy()
             end)
         end
     end
 
-    local function CreatePageFrame()
-        local Page = Instance.new("ScrollingFrame", PagesContainer)
+    local function CreatePageFrame(parent)
+        local Page = Instance.new("ScrollingFrame", parent)
         Page.Size = UDim2.new(1, 0, 1, -20)
         Page.BackgroundTransparency = 1
-        Page.ScrollBarThickness = 0
+        Page.ScrollBarThickness = 3
+        We13ideLib:RegisterTheme(Page, "ScrollBarImageColor3", "Accent")
         Page.Visible = false
         Page.ZIndex = 2
         
@@ -566,8 +547,8 @@ function We13ideLib:CreateWindow(options)
         local function UpdateCanvas()
             local maxY = math.max(LeftLayout.AbsoluteContentSize.Y, RightLayout.AbsoluteContentSize.Y)
             Page.CanvasSize = UDim2.new(0, 0, 0, maxY + 20)
-            We13ideLib:Tween(LeftCol, {Size = UDim2.new(0.5, -15, 0, LeftLayout.AbsoluteContentSize.Y)}, 0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-            We13ideLib:Tween(RightCol, {Size = UDim2.new(0.5, -15, 0, RightLayout.AbsoluteContentSize.Y)}, 0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+            We13ideLib:Tween(LeftCol, {Size = UDim2.new(0.5, -15, 0, LeftLayout.AbsoluteContentSize.Y)}, 0.4)
+            We13ideLib:Tween(RightCol, {Size = UDim2.new(0.5, -15, 0, RightLayout.AbsoluteContentSize.Y)}, 0.4)
         end
         LeftLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
         RightLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
@@ -575,143 +556,25 @@ function We13ideLib:CreateWindow(options)
         return Page, PageScale, LeftCol, RightCol
     end
 
-    -- GLOBAL SEARCH LOGIC
-    local SearchPage, SearchPageScale, SearchLeftCol, SearchRightCol = CreatePageFrame()
+    local SearchPage, SearchPageScale, SearchLeftCol, SearchRightCol = CreatePageFrame(PagesContainer)
     SearchPage.Name = "GlobalSearchPage"
 
-    SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
-        local query = SearchInput.Text:lower():gsub("%s+", "")
-        if query == "" then
-            SearchPage.Visible = false
-            for _, sec in pairs(WindowObj.SearchableSections) do
-                if not sec.IsDestroyed then
-                    sec.Frame.Parent = sec.OriginalParent
-                    sec.Frame.Visible = true
-                    for _, item in pairs(sec.Items) do 
-                        if not item.IsDestroyed then item.Frame.Visible = true end
-                    end
-                end
-            end
-            for _, t in pairs(WindowObj.Tabs) do
-                if not t.IsDestroyed and t.Active then t.Page.Visible = true end
-            end
-        else
-            for _, t in pairs(WindowObj.Tabs) do 
-                if not t.IsDestroyed then t.Page.Visible = false end 
-            end
-            SearchPage.Visible = true
-            
-            local toggleSearchSide = false
-            for _, sec in pairs(WindowObj.SearchableSections) do
-                if not sec.IsDestroyed then
-                    local secMatches = string.find(sec.CleanTitle, query) ~= nil
-                    local hasVisibleItems = false
-                    for _, item in pairs(sec.Items) do
-                        if not item.IsDestroyed then
-                            if secMatches or string.find(item.CleanTitle, query) then
-                                item.Frame.Visible = true
-                                hasVisibleItems = true
-                            else
-                                item.Frame.Visible = false
-                            end
-                        end
-                    end
-                    
-                    if hasVisibleItems or secMatches then
-                        sec.Frame.Visible = true
-                        if toggleSearchSide then
-                            sec.Frame.Parent = SearchRightCol
-                        else
-                            sec.Frame.Parent = SearchLeftCol
-                        end
-                        toggleSearchSide = not toggleSearchSide
-                    else
-                        sec.Frame.Visible = false
-                        sec.Frame.Parent = SearchLeftCol
-                    end
-                end
-            end
-        end
-    end)
-
-    -- CORE UI BUILDER LOGIC
     local function BuildSectionElements(SectionFrame, SectionObj)
-        
         local function BindDestroy(itemObj)
             function itemObj:Destroy()
+                if self.Connections then
+                    for _, c in pairs(self.Connections) do if c.Disconnect then c:Disconnect() end end
+                end
                 if self.Frame then self.Frame:Destroy() end
                 self.IsDestroyed = true
             end
         end
 
-        -- PARAGRAPH
-        function SectionObj:CreateParagraph(pInfo)
-            local PFrame = Instance.new("Frame", SectionFrame)
-            PFrame.BackgroundTransparency = 1
-            PFrame.Size = UDim2.new(1, 0, 0, 0)
-            PFrame.AutomaticSize = Enum.AutomaticSize.Y
-
-            local itemObj = {Frame = PFrame, CleanTitle = (pInfo.Title or ""):lower():gsub("%s+",""), IsDestroyed = false}
-            table.insert(self.Items, itemObj)
-
-            local PLayout = Instance.new("UIListLayout", PFrame)
-            PLayout.SortOrder = Enum.SortOrder.LayoutOrder
-            PLayout.Padding = UDim.new(0, 4)
-
-            local PTitle = Instance.new("TextLabel", PFrame)
-            PTitle.BackgroundTransparency = 1
-            PTitle.Size = UDim2.new(1, 0, 0, 14)
-            PTitle.Font = Enum.Font.GothamBold
-            PTitle.TextSize = 12
-            PTitle.TextXAlignment = Enum.TextXAlignment.Left
-            PTitle.Text = pInfo.Title or ""
-            We13ideLib:RegisterTheme(PTitle, "TextColor3", "TextPrimary")
-            if not pInfo.Title or pInfo.Title == "" then PTitle.Visible = false end
-
-            local PContent = Instance.new("TextLabel", PFrame)
-            PContent.BackgroundTransparency = 1
-            PContent.Size = UDim2.new(1, 0, 0, 0)
-            PContent.AutomaticSize = Enum.AutomaticSize.Y
-            PContent.Font = Enum.Font.Gotham
-            PContent.TextSize = 11
-            PContent.TextXAlignment = Enum.TextXAlignment.Left
-            PContent.TextYAlignment = Enum.TextYAlignment.Top
-            PContent.TextWrapped = true
-            PContent.Text = pInfo.Content or ""
-            We13ideLib:RegisterTheme(PContent, "TextColor3", "TextSecondary")
-
-            BindDestroy(itemObj)
-            itemObj.SetText = function(self, newTitle, newContent)
-                if newTitle then PTitle.Text = newTitle; PTitle.Visible = true end
-                if newContent then PContent.Text = newContent end
-            end
-            return itemObj
-        end
-
-        -- DIVIDER
-        function SectionObj:CreateDivider()
-            local DFrame = Instance.new("Frame", SectionFrame)
-            DFrame.Size = UDim2.new(1, 0, 0, 14)
-            DFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = DFrame, CleanTitle = "divider", IsDestroyed = false}
-            table.insert(self.Items, itemObj)
-
-            local Line = Instance.new("Frame", DFrame)
-            Line.Size = UDim2.new(0.9, 0, 0, 2)
-            Line.Position = UDim2.new(0.05, 0, 0.5, -1)
-            Instance.new("UICorner", Line).CornerRadius = UDim.new(1, 0)
-            We13ideLib:RegisterTheme(Line, "BackgroundColor3", "ElementBg")
-
-            BindDestroy(itemObj)
-            return itemObj
-        end
-
-        -- LABEL
         function SectionObj:CreateLabel(lInfo)
             local LabelFrame = Instance.new("Frame", SectionFrame)
             LabelFrame.Size = UDim2.new(1, 0, 0, 20)
             LabelFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = LabelFrame, CleanTitle = lInfo.Text:lower():gsub("%s+",""), IsDestroyed = false}
+            local itemObj = {Frame = LabelFrame, CleanTitle = lInfo.Text:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
             local LText = Instance.new("TextLabel", LabelFrame)
@@ -722,18 +585,18 @@ function We13ideLib:CreateWindow(options)
             LText.Size = UDim2.new(1, 0, 1, 0)
             LText.TextXAlignment = Enum.TextXAlignment.Left
             We13ideLib:RegisterTheme(LText, "TextColor3", "TextSecondary")
-
+            
+            ApplyTooltip(itemObj, LabelFrame, lInfo.Tooltip)
             BindDestroy(itemObj)
-            itemObj.SetText = function(self, newText) LText.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
+            itemObj.SetText = function(self, newText) LText.Text = newText end
             return itemObj
         end
 
-        -- BUTTON
         function SectionObj:CreateButton(bInfo)
             local BtnFrame = Instance.new("Frame", SectionFrame)
             BtnFrame.Size = UDim2.new(1, 0, 0, 32)
             BtnFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = BtnFrame, CleanTitle = bInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
+            local itemObj = {Frame = BtnFrame, CleanTitle = bInfo.Title:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
             local Button = Instance.new("TextButton", BtnFrame)
@@ -747,91 +610,22 @@ function We13ideLib:CreateWindow(options)
             We13ideLib:RegisterTheme(Button, "TextColor3", "TextPrimary")
 
             local BtnScale = Instance.new("UIScale", Button)
-            Button.MouseEnter:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1.03}, 0.3, Enum.EasingStyle.Back) end)
-            Button.MouseLeave:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-            Button.MouseButton1Down:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 0.92}, 0.1, Enum.EasingStyle.Quad) end)
-            Button.MouseButton1Up:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1.03}, 0.4, Enum.EasingStyle.Back) end)
-            
-            Button.MouseButton1Click:Connect(function()
-                if bInfo.Callback then task.spawn(bInfo.Callback) end
-            end)
+            table.insert(itemObj.Connections, Button.MouseEnter:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1.03}, 0.3) end))
+            table.insert(itemObj.Connections, Button.MouseLeave:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1}, 0.3) end))
+            table.insert(itemObj.Connections, Button.MouseButton1Down:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 0.92}, 0.1) end))
+            table.insert(itemObj.Connections, Button.MouseButton1Up:Connect(function() We13ideLib:Tween(BtnScale, {Scale = 1.03}, 0.4) end))
+            table.insert(itemObj.Connections, Button.MouseButton1Click:Connect(function() if bInfo.Callback then task.spawn(bInfo.Callback) end end))
 
+            ApplyTooltip(itemObj, Button, bInfo.Tooltip)
             BindDestroy(itemObj)
-            itemObj.SetText = function(self, newText) Button.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
             return itemObj
         end
 
-        -- KEYBIND
-        function SectionObj:CreateKeybind(kInfo)
-            local KeybindFrame = Instance.new("Frame", SectionFrame)
-            KeybindFrame.Size = UDim2.new(1, 0, 0, 30)
-            KeybindFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = KeybindFrame, CleanTitle = kInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
-            table.insert(self.Items, itemObj)
-
-            local KTitle = Instance.new("TextLabel", KeybindFrame)
-            KTitle.Text = kInfo.Title
-            KTitle.Font = Enum.Font.Gotham
-            KTitle.TextSize = 12
-            KTitle.BackgroundTransparency = 1
-            KTitle.Size = UDim2.new(0.6, 0, 1, 0)
-            KTitle.TextXAlignment = Enum.TextXAlignment.Left
-            We13ideLib:RegisterTheme(KTitle, "TextColor3", "TextSecondary")
-
-            local KBtn = Instance.new("TextButton", KeybindFrame)
-            KBtn.Size = UDim2.new(0.4, 0, 0, 22)
-            KBtn.Position = UDim2.new(0.6, 0, 0.5, -11)
-            KBtn.Text = "[ " .. (kInfo.Default and kInfo.Default.Name or "None") .. " ]"
-            KBtn.Font = Enum.Font.GothamMedium
-            KBtn.TextSize = 11
-            KBtn.AutoButtonColor = false
-            Instance.new("UICorner", KBtn).CornerRadius = UDim.new(0, 4)
-            We13ideLib:RegisterTheme(KBtn, "BackgroundColor3", "ElementBg")
-            We13ideLib:RegisterTheme(KBtn, "TextColor3", "Accent")
-
-            local KScale = Instance.new("UIScale", KBtn)
-            KeybindFrame.MouseEnter:Connect(function() We13ideLib:Tween(KScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-            KeybindFrame.MouseLeave:Connect(function() We13ideLib:Tween(KScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-            
-            local binding = false
-            local currentKey = kInfo.Default
-            
-            KBtn.MouseButton1Click:Connect(function()
-                binding = true
-                KBtn.Text = "[ ... ]"
-                We13ideLib:Tween(KScale, {Scale = 0.95}, 0.1, Enum.EasingStyle.Quad)
-                task.wait(0.1)
-                We13ideLib:Tween(KScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back)
-            end)
-
-            UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-                    binding = false
-                    if input.KeyCode.Name ~= "Unknown" then
-                        currentKey = input.KeyCode
-                        KBtn.Text = "[ " .. currentKey.Name .. " ]"
-                        if kInfo.KeyChangedCallback then task.spawn(kInfo.KeyChangedCallback, currentKey) end
-                    else
-                        KBtn.Text = "[ " .. (currentKey and currentKey.Name or "None") .. " ]"
-                    end
-                elseif not binding and currentKey and input.KeyCode == currentKey and not gameProcessed then
-                    if kInfo.Callback then task.spawn(kInfo.Callback, currentKey) end
-                end
-            end)
-
-            BindDestroy(itemObj)
-            itemObj.SetValue = function(self, keycode) currentKey = keycode; KBtn.Text = "[ " .. keycode.Name .. " ]" end
-            itemObj.GetValue = function() return currentKey end
-            itemObj.SetTitle = function(self, newText) KTitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
-            return itemObj
-        end
-
-        -- TOGGLE
         function SectionObj:CreateToggle(tInfo)
             local ToggleFrame = Instance.new("Frame", SectionFrame)
             ToggleFrame.Size = UDim2.new(1, 0, 0, 20)
             ToggleFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = ToggleFrame, CleanTitle = tInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
+            local itemObj = {Frame = ToggleFrame, CleanTitle = tInfo.Title:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
             local TTitle = Instance.new("TextLabel", ToggleFrame)
@@ -856,39 +650,29 @@ function We13ideLib:CreateWindow(options)
 
             local state = tInfo.Default or false
 
-            ToggleFrame.MouseEnter:Connect(function() We13ideLib:Tween(TTitle, {Position = UDim2.new(0, 4, 0, 0)}, 0.3, Enum.EasingStyle.Back) end)
-            ToggleFrame.MouseLeave:Connect(function() We13ideLib:Tween(TTitle, {Position = UDim2.new(0, 0, 0, 0)}, 0.3, Enum.EasingStyle.Back) end)
-
             local function Update()
                 TCircle.Size = UDim2.new(0, 14, 0, 6)
-                We13ideLib:Tween(TBtn, {BackgroundColor3 = state and We13ideLib.ActiveTheme.Accent or We13ideLib.ActiveTheme.ElementBg}, 0.3, Enum.EasingStyle.Quad)
-                
-                We13ideLib:Tween(TCircle, {
-                    Position = state and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5),
-                    BackgroundColor3 = state and Color3.new(1,1,1) or We13ideLib.ActiveTheme.TextSecondary,
-                    Size = UDim2.new(0, 10, 0, 10)
-                }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                
-                We13ideLib:Tween(TTitle, {TextColor3 = state and We13ideLib.ActiveTheme.TextPrimary or We13ideLib.ActiveTheme.TextSecondary}, 0.3, Enum.EasingStyle.Quad)
+                We13ideLib:Tween(TBtn, {BackgroundColor3 = state and We13ideLib.ActiveTheme.Accent or We13ideLib.ActiveTheme.ElementBg}, 0.3)
+                We13ideLib:Tween(TCircle, {Position = state and UDim2.new(1, -12, 0.5, -5) or UDim2.new(0, 2, 0.5, -5), BackgroundColor3 = state and Color3.new(1,1,1) or We13ideLib.ActiveTheme.TextSecondary, Size = UDim2.new(0, 10, 0, 10)}, 0.5)
+                We13ideLib:Tween(TTitle, {TextColor3 = state and We13ideLib.ActiveTheme.TextPrimary or We13ideLib.ActiveTheme.TextSecondary}, 0.3)
                 if tInfo.Callback then task.spawn(tInfo.Callback, state) end
             end
 
-            TBtn.MouseButton1Click:Connect(function() state = not state; Update() end)
+            table.insert(itemObj.Connections, TBtn.MouseButton1Click:Connect(function() state = not state; Update() end))
             Update()
-            We13ideLib:RegisterTheme(TBtn, "BorderColor3", "MainBackground")
             
+            ApplyTooltip(itemObj, ToggleFrame, tInfo.Tooltip)
+            BindContextMenu(ToggleFrame, {{Name = "Reset", Callback = function() state = tInfo.Default or false; Update() end}})
             BindDestroy(itemObj)
             itemObj.SetValue = function(self, val) state = val; Update() end
-            itemObj.SetTitle = function(self, newText) TTitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
             return itemObj
         end
 
-        -- SLIDER
         function SectionObj:CreateSlider(sInfo)
             local SliderFrame = Instance.new("Frame", SectionFrame)
             SliderFrame.Size = UDim2.new(1, 0, 0, 24)
             SliderFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = SliderFrame, CleanTitle = sInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
+            local itemObj = {Frame = SliderFrame, CleanTitle = sInfo.Title:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
             local STitle = Instance.new("TextLabel", SliderFrame)
@@ -932,324 +716,137 @@ function We13ideLib:CreateWindow(options)
             Instance.new("UICorner", SCircle).CornerRadius = UDim.new(1, 0)
             We13ideLib:RegisterTheme(SCircle, "BackgroundColor3", "Accent")
 
-            local SliderScale = Instance.new("UIScale", STrack)
-            SliderFrame.MouseEnter:Connect(function() We13ideLib:Tween(SliderScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-            SliderFrame.MouseLeave:Connect(function() We13ideLib:Tween(SliderScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-
             local min, max, val, rounding = sInfo.Min or 0, sInfo.Max or 100, sInfo.Default or 0, sInfo.Rounding or 1
 
             local function SetValue(v)
                 val = math.clamp(math.round(v / rounding) * rounding, min, max)
                 local percent = (val - min) / (max - min)
-                We13ideLib:Tween(SFill, {Size = UDim2.new(percent, 0, 1, 0)}, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-                We13ideLib:Tween(SCircle, {Position = UDim2.new(percent, -4, 0.5, -4)}, 0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                We13ideLib:Tween(SFill, {Size = UDim2.new(percent, 0, 1, 0)}, 0.2)
+                We13ideLib:Tween(SCircle, {Position = UDim2.new(percent, -4, 0.5, -4)}, 0.2)
                 local fmtStr = string.find(tostring(rounding), "%.") and string.format("%%.%df", string.len(tostring(rounding):match("%.(%d+)"))) or "%d"
                 SValue.Text = string.format(fmtStr, val)
                 if sInfo.Callback then task.spawn(sInfo.Callback, val) end
             end
 
             local isDragging = false
-            SBtn.InputBegan:Connect(function(input)
+            table.insert(itemObj.Connections, SBtn.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     isDragging = true
-                    SCircle.Size = UDim2.new(0,16,0,8)
-                    We13ideLib:Tween(SCircle, {Size = UDim2.new(0,14,0,14), Position = UDim2.new(SCircle.Position.X.Scale, -7, 0.5, -7)}, 0.4, Enum.EasingStyle.Back)
+                    We13ideLib:Tween(SCircle, {Size = UDim2.new(0,14,0,14), Position = UDim2.new(SCircle.Position.X.Scale, -7, 0.5, -7)}, 0.4)
                 end
-            end)
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    if isDragging then
-                        isDragging = false
-                        SCircle.Size = UDim2.new(0,6,0,14)
-                        We13ideLib:Tween(SCircle, {Size = UDim2.new(0,8,0,8), Position = UDim2.new(SCircle.Position.X.Scale, -4, 0.5, -4)}, 0.4, Enum.EasingStyle.Back)
-                    end
+            end))
+            table.insert(itemObj.Connections, UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and isDragging then
+                    isDragging = false
+                    We13ideLib:Tween(SCircle, {Size = UDim2.new(0,8,0,8), Position = UDim2.new(SCircle.Position.X.Scale, -4, 0.5, -4)}, 0.4)
                 end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
+            end))
+            table.insert(itemObj.Connections, UserInputService.InputChanged:Connect(function(input)
                 if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
                     local percent = math.clamp((UserInputService:GetMouseLocation().X - STrack.AbsolutePosition.X) / STrack.AbsoluteSize.X, 0, 1)
                     SetValue(min + ((max - min) * percent))
                 end
-            end)
+            end))
 
             SetValue(val)
-            
+            ApplyTooltip(itemObj, SliderFrame, sInfo.Tooltip)
+            BindContextMenu(SliderFrame, {{Name = "Reset", Callback = function() SetValue(sInfo.Default or min) end}, {Name = "Max", Callback = function() SetValue(max) end}})
             BindDestroy(itemObj)
             itemObj.SetValue = function(self, v) SetValue(v) end
-            itemObj.GetValue = function() return val end
-            itemObj.SetTitle = function(self, newText) STitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
             return itemObj
         end
 
-        -- DROPDOWN 
-        function SectionObj:CreateDropdown(dInfo)
-            local DropdownFrame = Instance.new("Frame", SectionFrame)
-            DropdownFrame.Size = UDim2.new(1, 0, 0, 30)
-            DropdownFrame.BackgroundTransparency = 1
-            DropdownFrame.ClipsDescendants = true
-            local itemObj = {Frame = DropdownFrame, CleanTitle = dInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
+        function SectionObj:CreateKeybind(kInfo)
+            local KeybindFrame = Instance.new("Frame", SectionFrame)
+            KeybindFrame.Size = UDim2.new(1, 0, 0, 30)
+            KeybindFrame.BackgroundTransparency = 1
+            local itemObj = {Frame = KeybindFrame, CleanTitle = kInfo.Title:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
-            local DTitle = Instance.new("TextLabel", DropdownFrame)
-            DTitle.Text = dInfo.Title
-            DTitle.Font = Enum.Font.Gotham
-            DTitle.TextSize = 12
-            DTitle.BackgroundTransparency = 1
-            DTitle.Size = UDim2.new(0.5, 0, 0, 30)
-            DTitle.TextXAlignment = Enum.TextXAlignment.Left
-            We13ideLib:RegisterTheme(DTitle, "TextColor3", "TextSecondary")
+            local KTitle = Instance.new("TextLabel", KeybindFrame)
+            KTitle.Text = kInfo.Title
+            KTitle.Font = Enum.Font.Gotham
+            KTitle.TextSize = 12
+            KTitle.BackgroundTransparency = 1
+            KTitle.Size = UDim2.new(0.5, 0, 1, 0)
+            KTitle.TextXAlignment = Enum.TextXAlignment.Left
+            We13ideLib:RegisterTheme(KTitle, "TextColor3", "TextSecondary")
 
-            local DButton = Instance.new("TextButton", DropdownFrame)
-            DButton.Size = UDim2.new(0.5, 0, 0, 22)
-            DButton.Position = UDim2.new(0.5, 0, 0, 4)
-            DButton.Text = tostring(dInfo.Default or "Select...")
-            DButton.Font = Enum.Font.Gotham
-            DButton.TextSize = 11
-            DButton.AutoButtonColor = false
-            DButton.TextTruncate = Enum.TextTruncate.AtEnd
-            Instance.new("UICorner", DButton).CornerRadius = UDim.new(0, 4)
-            We13ideLib:RegisterTheme(DButton, "BackgroundColor3", "ElementBg")
-            We13ideLib:RegisterTheme(DButton, "TextColor3", "TextPrimary")
+            local KBtn = Instance.new("TextButton", KeybindFrame)
+            KBtn.Size = UDim2.new(0.3, 0, 0, 22)
+            KBtn.Position = UDim2.new(0.7, 0, 0.5, -11)
+            KBtn.Text = "[ " .. (kInfo.Default and kInfo.Default.Name or "None") .. " ]"
+            KBtn.Font = Enum.Font.GothamMedium
+            KBtn.TextSize = 11
+            KBtn.AutoButtonColor = false
+            Instance.new("UICorner", KBtn).CornerRadius = UDim.new(0, 4)
+            We13ideLib:RegisterTheme(KBtn, "BackgroundColor3", "ElementBg")
+            We13ideLib:RegisterTheme(KBtn, "TextColor3", "Accent")
 
-            local DropScale = Instance.new("UIScale", DButton)
-            DButton.MouseEnter:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-            DButton.MouseLeave:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-            DButton.MouseButton1Down:Connect(function() We13ideLib:Tween(DropScale, {Scale = 0.9}, 0.1, Enum.EasingStyle.Quad) end)
-            DButton.MouseButton1Up:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1.05}, 0.4, Enum.EasingStyle.Back) end)
-            local ListFrame = Instance.new("Frame", DropdownFrame)
-            ListFrame.Size = UDim2.new(0.5, 0, 0, 0)
-            ListFrame.Position = UDim2.new(0.5, 0, 0, 30)
-            Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 4)
-            local ListLayout = Instance.new("UIListLayout", ListFrame)
-            We13ideLib:RegisterTheme(ListFrame, "BackgroundColor3", "ElementBg")
+            local ModeBtn = Instance.new("TextButton", KeybindFrame)
+            ModeBtn.Size = UDim2.new(0.18, 0, 0, 22)
+            ModeBtn.Position = UDim2.new(0.5, 0, 0.5, -11)
+            ModeBtn.Text = "Toggle"
+            ModeBtn.Font = Enum.Font.Gotham
+            ModeBtn.TextSize = 10
+            ModeBtn.AutoButtonColor = false
+            Instance.new("UICorner", ModeBtn).CornerRadius = UDim.new(0, 4)
+            We13ideLib:RegisterTheme(ModeBtn, "BackgroundColor3", "ElementBg")
+            We13ideLib:RegisterTheme(ModeBtn, "TextColor3", "TextSecondary")
 
-            local expanded = false
-            local values = dInfo.Values or {}
-            
-            local function Select(val)
-                DButton.Text = tostring(val)
-                if dInfo.Callback then task.spawn(dInfo.Callback, val) end
-            end
+            local binding = false
+            local currentKey = kInfo.Default
+            local modes = {"Toggle", "Hold", "Always"}
+            local currentModeIdx = 1
+            local holdActive = false
 
-            local function Populate(newValues)
-                for _, child in ipairs(ListFrame:GetChildren()) do
-                    if child:IsA("TextButton") then child:Destroy() end
+            table.insert(itemObj.Connections, ModeBtn.MouseButton1Click:Connect(function()
+                currentModeIdx = currentModeIdx >= #modes and 1 or (currentModeIdx + 1)
+                ModeBtn.Text = modes[currentModeIdx]
+            end))
+
+            table.insert(itemObj.Connections, KBtn.MouseButton1Click:Connect(function()
+                binding = true
+                KBtn.Text = "[ ... ]"
+            end))
+
+            table.insert(itemObj.Connections, UserInputService.InputBegan:Connect(function(input, gp)
+                if binding and input.UserInputType == Enum.UserInputType.Keyboard then
+                    binding = false
+                    currentKey = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode or nil
+                    KBtn.Text = "[ " .. (currentKey and currentKey.Name or "None") .. " ]"
+                    if kInfo.KeyChangedCallback then task.spawn(kInfo.KeyChangedCallback, currentKey) end
+                elseif not binding and currentKey and input.KeyCode == currentKey and not gp then
+                    local mode = modes[currentModeIdx]
+                    if mode == "Toggle" or mode == "Always" then
+                        if kInfo.Callback then task.spawn(kInfo.Callback, currentKey, mode, true) end
+                    elseif mode == "Hold" then
+                        holdActive = true
+                        if kInfo.Callback then task.spawn(kInfo.Callback, currentKey, mode, true) end
+                    end
                 end
-                for _, v in ipairs(newValues) do
-                    local Item = Instance.new("TextButton", ListFrame)
-                    Item.Size = UDim2.new(1, 0, 0, 20)
-                    Item.BackgroundTransparency = 1
-                    Item.Text = tostring(v)
-                    Item.Font = Enum.Font.Gotham
-                    Item.TextSize = 11
-                    Item.TextColor3 = We13ideLib.ActiveTheme.TextSecondary
-                    
-                    Item.MouseEnter:Connect(function() We13ideLib:Tween(Item, {TextColor3 = We13ideLib.ActiveTheme.Accent, TextSize = 12}, 0.2, Enum.EasingStyle.Quad) end)
-                    Item.MouseLeave:Connect(function() We13ideLib:Tween(Item, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary, TextSize = 11}, 0.2, Enum.EasingStyle.Quad) end)
+            end))
 
-                    Item.MouseButton1Click:Connect(function()
-                        Select(v)
-                        expanded = false
-                        We13ideLib:Tween(ListFrame, {Size = UDim2.new(0.5, 0, 0, 0)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                        We13ideLib:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    end)
+            table.insert(itemObj.Connections, UserInputService.InputEnded:Connect(function(input, gp)
+                if not binding and currentKey and input.KeyCode == currentKey and not gp then
+                    if modes[currentModeIdx] == "Hold" and holdActive then
+                        holdActive = false
+                        if kInfo.Callback then task.spawn(kInfo.Callback, currentKey, "Hold", false) end
+                    end
                 end
-            end
-            
-            Populate(values)
+            end))
 
-            DButton.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then
-                    local h = ListLayout.AbsoluteContentSize.Y
-                    ListFrame.Size = UDim2.new(0.5, 0, 0, 0)
-                    We13ideLib:Tween(ListFrame, {Size = UDim2.new(0.5, 0, 0, h)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    We13ideLib:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 30 + h)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                else
-                    We13ideLib:Tween(ListFrame, {Size = UDim2.new(0.5, 0, 0, 0)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    We13ideLib:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                end
-            end)
-
-            if dInfo.Default then Select(dInfo.Default) end
-            
+            ApplyTooltip(itemObj, KeybindFrame, kInfo.Tooltip)
             BindDestroy(itemObj)
-            itemObj.SetValue = function(self, v) Select(v) end
-            itemObj.Refresh = function(self, newVals) Populate(newVals) end
-            itemObj.GetValue = function() return DButton.Text end
-            itemObj.SetTitle = function(self, newText) DTitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
             return itemObj
         end
 
-        -- MULTI-DROPDOWN
-        function SectionObj:CreateMultiDropdown(dInfo)
-            local DropdownFrame = Instance.new("Frame", SectionFrame)
-            DropdownFrame.Size = UDim2.new(1, 0, 0, 30)
-            DropdownFrame.BackgroundTransparency = 1
-            DropdownFrame.ClipsDescendants = true
-            local itemObj = {Frame = DropdownFrame, CleanTitle = dInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
-            table.insert(self.Items, itemObj)
-
-            local DTitle = Instance.new("TextLabel", DropdownFrame)
-            DTitle.Text = dInfo.Title
-            DTitle.Font = Enum.Font.Gotham
-            DTitle.TextSize = 12
-            DTitle.BackgroundTransparency = 1
-            DTitle.Size = UDim2.new(0.5, 0, 0, 30)
-            DTitle.TextXAlignment = Enum.TextXAlignment.Left
-            We13ideLib:RegisterTheme(DTitle, "TextColor3", "TextSecondary")
-
-            local DButton = Instance.new("TextButton", DropdownFrame)
-            DButton.Size = UDim2.new(0.5, 0, 0, 22)
-            DButton.Position = UDim2.new(0.5, 0, 0, 4)
-            DButton.Font = Enum.Font.Gotham
-            DButton.TextSize = 11
-            DButton.AutoButtonColor = false
-            DButton.TextTruncate = Enum.TextTruncate.AtEnd
-            Instance.new("UICorner", DButton).CornerRadius = UDim.new(0, 4)
-            We13ideLib:RegisterTheme(DButton, "BackgroundColor3", "ElementBg")
-            We13ideLib:RegisterTheme(DButton, "TextColor3", "TextPrimary")
-
-            local selected = type(dInfo.Default) == "table" and dInfo.Default or {}
-
-            local function UpdateBtnText()
-                if #selected == 0 then DButton.Text = "None Selected"
-                elseif #selected == 1 then DButton.Text = tostring(selected[1])
-                else DButton.Text = "Selected: " .. #selected end
-            end
-            UpdateBtnText()
-
-            local DropScale = Instance.new("UIScale", DButton)
-            DButton.MouseEnter:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-            DButton.MouseLeave:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-            DButton.MouseButton1Down:Connect(function() We13ideLib:Tween(DropScale, {Scale = 0.9}, 0.1, Enum.EasingStyle.Quad) end)
-            DButton.MouseButton1Up:Connect(function() We13ideLib:Tween(DropScale, {Scale = 1.05}, 0.4, Enum.EasingStyle.Back) end)
-
-            local ListFrame = Instance.new("Frame", DropdownFrame)
-            ListFrame.Size = UDim2.new(0.5, 0, 0, 0)
-            ListFrame.Position = UDim2.new(0.5, 0, 0, 30)
-            Instance.new("UICorner", ListFrame).CornerRadius = UDim.new(0, 4)
-            local ListLayout = Instance.new("UIListLayout", ListFrame)
-            We13ideLib:RegisterTheme(ListFrame, "BackgroundColor3", "ElementBg")
-
-            local expanded = false
-
-            local function Populate(newValues)
-                for _, child in ipairs(ListFrame:GetChildren()) do
-                    if child:IsA("TextButton") then child:Destroy() end
-                end
-                for _, v in ipairs(newValues) do
-                    local Item = Instance.new("TextButton", ListFrame)
-                    Item.Size = UDim2.new(1, 0, 0, 20)
-                    Item.BackgroundTransparency = 1
-                    Item.Text = tostring(v)
-                    Item.Font = Enum.Font.Gotham
-                    Item.TextSize = 11
-                    
-                    local isSelected = table.find(selected, v) ~= nil
-                    Item.TextColor3 = isSelected and We13ideLib.ActiveTheme.Accent or We13ideLib.ActiveTheme.TextSecondary
-                    
-                    Item.MouseEnter:Connect(function() We13ideLib:Tween(Item, {TextSize = 12}, 0.2, Enum.EasingStyle.Quad) end)
-                    Item.MouseLeave:Connect(function() We13ideLib:Tween(Item, {TextSize = 11}, 0.2, Enum.EasingStyle.Quad) end)
-
-                    Item.MouseButton1Click:Connect(function()
-                        local idx = table.find(selected, v)
-                        if idx then
-                            table.remove(selected, idx)
-                            We13ideLib:Tween(Item, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3)
-                        else
-                            table.insert(selected, v)
-                            We13ideLib:Tween(Item, {TextColor3 = We13ideLib.ActiveTheme.Accent}, 0.3)
-                        end
-                        UpdateBtnText()
-                        if dInfo.Callback then task.spawn(dInfo.Callback, selected) end
-                    end)
-                end
-            end
-            
-            Populate(dInfo.Values or {})
-
-            DButton.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then
-                    local h = ListLayout.AbsoluteContentSize.Y
-                    ListFrame.Size = UDim2.new(0.5, 0, 0, 0)
-                    We13ideLib:Tween(ListFrame, {Size = UDim2.new(0.5, 0, 0, h)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    We13ideLib:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 30 + h)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                else
-                    We13ideLib:Tween(ListFrame, {Size = UDim2.new(0.5, 0, 0, 0)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                    We13ideLib:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                end
-            end)
-            
-            BindDestroy(itemObj)
-            itemObj.SetValue = function(self, valTable) selected = valTable; UpdateBtnText(); Populate(dInfo.Values or {}) end
-            itemObj.Refresh = function(self, newVals) Populate(newVals) end
-            itemObj.GetValue = function() return selected end
-            itemObj.SetTitle = function(self, newText) DTitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
-            return itemObj
-        end
-
-        -- INPUT
-        function SectionObj:CreateInput(iInfo)
-            local InputFrame = Instance.new("Frame", SectionFrame)
-            InputFrame.Size = UDim2.new(1, 0, 0, 30)
-            InputFrame.BackgroundTransparency = 1
-            local itemObj = {Frame = InputFrame, CleanTitle = iInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
-            table.insert(self.Items, itemObj)
-
-            local ITitle = Instance.new("TextLabel", InputFrame)
-            ITitle.Text = iInfo.Title
-            ITitle.Font = Enum.Font.Gotham
-            ITitle.TextSize = 12
-            ITitle.BackgroundTransparency = 1
-            ITitle.Size = UDim2.new(0.5, 0, 1, 0)
-            ITitle.TextXAlignment = Enum.TextXAlignment.Left
-            We13ideLib:RegisterTheme(ITitle, "TextColor3", "TextSecondary")
-
-            local TextBoxBg = Instance.new("Frame", InputFrame)
-            TextBoxBg.Size = UDim2.new(0.5, 0, 0, 22)
-            TextBoxBg.Position = UDim2.new(0.5, 0, 0.5, -11)
-            Instance.new("UICorner", TextBoxBg).CornerRadius = UDim.new(0, 4)
-            We13ideLib:RegisterTheme(TextBoxBg, "BackgroundColor3", "ElementBg")
-
-            local TextBox = Instance.new("TextBox", TextBoxBg)
-            TextBox.Size = UDim2.new(1, -10, 1, 0)
-            TextBox.Position = UDim2.new(0, 5, 0, 0)
-            TextBox.BackgroundTransparency = 1
-            TextBox.Text = iInfo.Default or ""
-            TextBox.PlaceholderText = iInfo.Placeholder or "Type here..."
-            TextBox.Font = Enum.Font.Gotham
-            TextBox.TextSize = 11
-            TextBox.TextXAlignment = Enum.TextXAlignment.Left
-            TextBox.ClearTextOnFocus = false
-            We13ideLib:RegisterTheme(TextBox, "TextColor3", "TextPrimary")
-            We13ideLib:RegisterTheme(TextBox, "PlaceholderColor3", "TextSecondary")
-
-            local InputScale = Instance.new("UIScale", TextBoxBg)
-            InputFrame.MouseEnter:Connect(function() We13ideLib:Tween(InputScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-            InputFrame.MouseLeave:Connect(function() We13ideLib:Tween(InputScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-            TextBox.Focused:Connect(function() We13ideLib:Tween(InputScale, {Scale = 1.08}, 0.4, Enum.EasingStyle.Back) end)
-
-            TextBox.FocusLost:Connect(function()
-                We13ideLib:Tween(InputScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back)
-                if iInfo.Callback then task.spawn(iInfo.Callback, TextBox.Text) end
-            end)
-            
-            BindDestroy(itemObj)
-            itemObj.SetValue = function(self, v) TextBox.Text = tostring(v) end
-            itemObj.GetValue = function() return TextBox.Text end
-            itemObj.SetTitle = function(self, newText) ITitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
-            return itemObj
-        end
-
-        -- COLOR PICKER
         function SectionObj:CreateColorPicker(cInfo)
             local CPFrame = Instance.new("Frame", SectionFrame)
             CPFrame.Size = UDim2.new(1, 0, 0, 30)
             CPFrame.BackgroundTransparency = 1
             CPFrame.ClipsDescendants = true
-            local itemObj = {Frame = CPFrame, CleanTitle = cInfo.Title:lower():gsub("%s+",""), IsDestroyed = false}
+            local itemObj = {Frame = CPFrame, CleanTitle = cInfo.Title:lower(), Connections = {}, IsDestroyed = false}
             table.insert(self.Items, itemObj)
 
             local CTitle = Instance.new("TextLabel", CPFrame)
@@ -1266,7 +863,6 @@ function We13ideLib:CreateWindow(options)
             CBtn.Position = UDim2.new(0.5, 0, 0, 4)
             CBtn.Text = ""
             Instance.new("UICorner", CBtn).CornerRadius = UDim.new(0, 4)
-            
             local defColor = cInfo.Default or Color3.new(1,1,1)
             CBtn.BackgroundColor3 = defColor
 
@@ -1274,19 +870,16 @@ function We13ideLib:CreateWindow(options)
             local expanded = false
 
             local ColorMapFrame = Instance.new("Frame", CPFrame)
-            ColorMapFrame.Size = UDim2.new(1, 0, 0, 140)
+            ColorMapFrame.Size = UDim2.new(1, 0, 0, 160)
             ColorMapFrame.Position = UDim2.new(0, 0, 0, 35)
             ColorMapFrame.BackgroundTransparency = 1
 
             local SVMap = Instance.new("Frame", ColorMapFrame)
-            SVMap.Size = UDim2.new(1, 0, 1, -20)
+            SVMap.Size = UDim2.new(1, 0, 1, -40)
             SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             Instance.new("UICorner", SVMap).CornerRadius = UDim.new(0, 4)
-            
             local WhiteGrad = Instance.new("UIGradient", SVMap)
             WhiteGrad.Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1))
-            WhiteGrad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})
-            
             local BlackOverlay = Instance.new("Frame", SVMap)
             BlackOverlay.Size = UDim2.new(1, 0, 1, 0)
             BlackOverlay.BackgroundColor3 = Color3.new(0,0,0)
@@ -1301,17 +894,12 @@ function We13ideLib:CreateWindow(options)
             SVDot.Position = UDim2.new(s, 0, 1 - v, 0)
             SVDot.BackgroundColor3 = Color3.new(1,1,1)
             Instance.new("UICorner", SVDot).CornerRadius = UDim.new(1, 0)
-            local SVDotStroke = Instance.new("UIStroke", SVDot)
-            SVDotStroke.Color = Color3.new(0,0,0)
 
             local HueStrip = Instance.new("Frame", ColorMapFrame)
             HueStrip.Size = UDim2.new(1, 0, 0, 12)
-            HueStrip.Position = UDim2.new(0, 0, 1, -12)
-            HueStrip.BackgroundColor3 = Color3.new(1,1,1)
+            HueStrip.Position = UDim2.new(0, 0, 1, -34)
             Instance.new("UICorner", HueStrip).CornerRadius = UDim.new(0, 4)
-
             local HueGrad = Instance.new("UIGradient", HueStrip)
-            HueGrad.Rotation = 0 
             local colors = {}
             for i = 0, 10 do table.insert(colors, ColorSequenceKeypoint.new(i/10, Color3.fromHSV(i/10, 1, 1))) end
             HueGrad.Color = ColorSequence.new(colors)
@@ -1322,59 +910,177 @@ function We13ideLib:CreateWindow(options)
             HueDot.Position = UDim2.new(h, 0, 0.5, 0)
             HueDot.BackgroundColor3 = Color3.new(1,1,1)
             Instance.new("UICorner", HueDot).CornerRadius = UDim.new(0, 2)
-            local HueStroke = Instance.new("UIStroke", HueDot)
-            HueStroke.Color = Color3.new(0,0,0)
+
+            local HexBg = Instance.new("Frame", ColorMapFrame)
+            HexBg.Size = UDim2.new(1, 0, 0, 20)
+            HexBg.Position = UDim2.new(0, 0, 1, -20)
+            Instance.new("UICorner", HexBg).CornerRadius = UDim.new(0, 4)
+            We13ideLib:RegisterTheme(HexBg, "BackgroundColor3", "ElementBg")
+            local HexInput = Instance.new("TextBox", HexBg)
+            HexInput.Size = UDim2.new(1, -10, 1, 0)
+            HexInput.Position = UDim2.new(0, 5, 0, 0)
+            HexInput.BackgroundTransparency = 1
+            HexInput.Font = Enum.Font.Gotham
+            HexInput.TextSize = 11
+            HexInput.TextXAlignment = Enum.TextXAlignment.Left
+            HexInput.Text = "#" .. defColor:ToHex()
+            We13ideLib:RegisterTheme(HexInput, "TextColor3", "TextPrimary")
 
             local function UpdateColor()
                 local color = Color3.fromHSV(h, s, v)
                 SVMap.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 CBtn.BackgroundColor3 = color
+                HexInput.Text = "#" .. color:ToHex()
                 if cInfo.Callback then task.spawn(cInfo.Callback, color) end
             end
+
+            table.insert(itemObj.Connections, HexInput.FocusLost:Connect(function()
+                local success, color = pcall(function() return Color3.fromHex(HexInput.Text:gsub("#", "")) end)
+                if success then
+                    h, s, v = color:ToHSV()
+                    SVDot.Position = UDim2.new(s, 0, 1 - v, 0)
+                    HueDot.Position = UDim2.new(h, 0, 0.5, 0)
+                    UpdateColor()
+                end
+            end))
 
             local draggingSV, draggingHue = false, false
             local function handleSV(input)
                 s = math.clamp((input.Position.X - SVMap.AbsolutePosition.X) / SVMap.AbsoluteSize.X, 0, 1)
                 v = 1 - math.clamp((input.Position.Y - SVMap.AbsolutePosition.Y) / SVMap.AbsoluteSize.Y, 0, 1)
-                We13ideLib:Tween(SVDot, {Position = UDim2.new(s, 0, 1 - v, 0)}, 0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                We13ideLib:Tween(SVDot, {Position = UDim2.new(s, 0, 1 - v, 0)}, 0.05)
                 UpdateColor()
             end
-
             local function handleHue(input)
                 h = math.clamp((input.Position.X - HueStrip.AbsolutePosition.X) / HueStrip.AbsoluteSize.X, 0, 1)
-                We13ideLib:Tween(HueDot, {Position = UDim2.new(h, 0, 0.5, 0)}, 0.05, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                We13ideLib:Tween(HueDot, {Position = UDim2.new(h, 0, 0.5, 0)}, 0.05)
                 UpdateColor()
             end
 
-            SVMap.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSV = true; handleSV(input) end end)
-            HueStrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingHue = true; handleHue(input) end end)
-            
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSV = false; draggingHue = false end
-            end)
-            UserInputService.InputChanged:Connect(function(input)
+            table.insert(itemObj.Connections, SVMap.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSV = true; handleSV(input) end end))
+            table.insert(itemObj.Connections, HueStrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingHue = true; handleHue(input) end end))
+            table.insert(itemObj.Connections, UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSV = false; draggingHue = false end end))
+            table.insert(itemObj.Connections, UserInputService.InputChanged:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement then
                     if draggingSV then handleSV(input) elseif draggingHue then handleHue(input) end
                 end
-            end)
+            end))
 
-            CBtn.MouseButton1Click:Connect(function()
+            table.insert(itemObj.Connections, CBtn.MouseButton1Click:Connect(function()
                 expanded = not expanded
-                if expanded then
-                    We13ideLib:Tween(CPFrame, {Size = UDim2.new(1, 0, 0, 180)}, 0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                else
-                    We13ideLib:Tween(CPFrame, {Size = UDim2.new(1, 0, 0, 30)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                end
-            end)
+                We13ideLib:Tween(CPFrame, {Size = UDim2.new(1, 0, 0, expanded and 200 or 30)}, 0.5)
+            end))
+
+            ApplyTooltip(itemObj, CPFrame, cInfo.Tooltip)
+            BindDestroy(itemObj)
+            return itemObj
+        end
+
+        function SectionObj:CreateEditor(eInfo)
+            local EdFrame = Instance.new("Frame", SectionFrame)
+            EdFrame.Size = UDim2.new(1, 0, 0, eInfo.Height or 150)
+            EdFrame.BackgroundTransparency = 1
+            local itemObj = {Frame = EdFrame, CleanTitle = "editor", Connections = {}, IsDestroyed = false}
+            table.insert(self.Items, itemObj)
+
+            local EdBg = Instance.new("Frame", EdFrame)
+            EdBg.Size = UDim2.new(1, 0, 1, 0)
+            Instance.new("UICorner", EdBg).CornerRadius = UDim.new(0, 6)
+            We13ideLib:RegisterTheme(EdBg, "BackgroundColor3", "ElementBg")
+
+            local LineScroller = Instance.new("ScrollingFrame", EdBg)
+            LineScroller.Size = UDim2.new(0, 30, 1, -10)
+            LineScroller.Position = UDim2.new(0, 5, 0, 5)
+            LineScroller.BackgroundTransparency = 1
+            LineScroller.ScrollBarThickness = 0
+            
+            local LineText = Instance.new("TextLabel", LineScroller)
+            LineText.Size = UDim2.new(1, 0, 1, 0)
+            LineText.BackgroundTransparency = 1
+            LineText.Font = Enum.Font.Code
+            LineText.TextSize = 12
+            LineText.Text = "1"
+            LineText.TextYAlignment = Enum.TextYAlignment.Top
+            LineText.TextXAlignment = Enum.TextXAlignment.Right
+            We13ideLib:RegisterTheme(LineText, "TextColor3", "TextSecondary")
+
+            local TextScroller = Instance.new("ScrollingFrame", EdBg)
+            TextScroller.Size = UDim2.new(1, -45, 1, -10)
+            TextScroller.Position = UDim2.new(0, 40, 0, 5)
+            TextScroller.BackgroundTransparency = 1
+            TextScroller.ScrollBarThickness = 3
+            We13ideLib:RegisterTheme(TextScroller, "ScrollBarImageColor3", "Accent")
+
+            local TextBox = Instance.new("TextBox", TextScroller)
+            TextBox.Size = UDim2.new(1, 0, 1, 0)
+            TextBox.BackgroundTransparency = 1
+            TextBox.MultiLine = true
+            TextBox.ClearTextOnFocus = false
+            TextBox.Font = Enum.Font.Code
+            TextBox.TextSize = 12
+            TextBox.TextXAlignment = Enum.TextXAlignment.Left
+            TextBox.TextYAlignment = Enum.TextYAlignment.Top
+            TextBox.Text = eInfo.Default or ""
+            We13ideLib:RegisterTheme(TextBox, "TextColor3", "TextPrimary")
+
+            table.insert(itemObj.Connections, TextBox:GetPropertyChangedSignal("Text"):Connect(function()
+                local _, count = TextBox.Text:gsub("\n", "")
+                local lines = ""
+                for i = 1, count + 1 do lines = lines .. i .. "\n" end
+                LineText.Text = lines
+                TextBox.Size = UDim2.new(1, 0, 0, (count + 1) * 14)
+                LineText.Size = UDim2.new(1, 0, 0, (count + 1) * 14)
+                TextScroller.CanvasSize = UDim2.new(0, 0, 0, (count + 1) * 14)
+                LineScroller.CanvasSize = UDim2.new(0, 0, 0, (count + 1) * 14)
+            end))
+
+            table.insert(itemObj.Connections, TextScroller:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+                LineScroller.CanvasPosition = TextScroller.CanvasPosition
+            end))
 
             BindDestroy(itemObj)
-            itemObj.SetValue = function(self, color) 
-                h, s, v = color:ToHSV()
-                SVDot.Position = UDim2.new(s, 0, 1 - v, 0)
-                HueDot.Position = UDim2.new(h, 0, 0.5, 0)
-                UpdateColor()
+            itemObj.GetValue = function() return TextBox.Text end
+            return itemObj
+        end
+
+        function SectionObj:CreateConsole(cInfo)
+            local ConFrame = Instance.new("Frame", SectionFrame)
+            ConFrame.Size = UDim2.new(1, 0, 0, cInfo.Height or 150)
+            ConFrame.BackgroundTransparency = 1
+            local itemObj = {Frame = ConFrame, CleanTitle = "console", Connections = {}, IsDestroyed = false}
+            table.insert(self.Items, itemObj)
+
+            local ConBg = Instance.new("Frame", ConFrame)
+            ConBg.Size = UDim2.new(1, 0, 1, 0)
+            Instance.new("UICorner", ConBg).CornerRadius = UDim.new(0, 6)
+            We13ideLib:RegisterTheme(ConBg, "BackgroundColor3", "ElementBg")
+
+            local Scroller = Instance.new("ScrollingFrame", ConBg)
+            Scroller.Size = UDim2.new(1, -10, 1, -10)
+            Scroller.Position = UDim2.new(0, 5, 0, 5)
+            Scroller.BackgroundTransparency = 1
+            Scroller.ScrollBarThickness = 3
+            We13ideLib:RegisterTheme(Scroller, "ScrollBarImageColor3", "Accent")
+            
+            local ConLayout = Instance.new("UIListLayout", Scroller)
+            ConLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+            table.insert(itemObj.Connections, ConLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                Scroller.CanvasSize = UDim2.new(0, 0, 0, ConLayout.AbsoluteContentSize.Y)
+                Scroller.CanvasPosition = Vector2.new(0, ConLayout.AbsoluteContentSize.Y)
+            end))
+
+            BindDestroy(itemObj)
+            itemObj.Log = function(self, text, color)
+                local msg = Instance.new("TextLabel", Scroller)
+                msg.Size = UDim2.new(1, 0, 0, 14)
+                msg.BackgroundTransparency = 1
+                msg.Font = Enum.Font.Code
+                msg.TextSize = 11
+                msg.TextXAlignment = Enum.TextXAlignment.Left
+                msg.Text = "[LOG] " .. text
+                if color then msg.TextColor3 = color else We13ideLib:RegisterTheme(msg, "TextColor3", "TextPrimary") end
             end
-            itemObj.SetTitle = function(self, newText) CTitle.Text = newText; self.CleanTitle = newText:lower():gsub("%s+","") end
             return itemObj
         end
     end
@@ -1386,11 +1092,7 @@ function We13ideLib:CreateWindow(options)
         if isPinned then TabBtn.Position = UDim2.new(0, 0, 1, -50) end
         TabBtn.BackgroundTransparency = 1 
         TabBtn.Text = ""
-        TabBtn.AutoButtonColor = false
         TabBtn.ZIndex = 4
-        We13ideLib:RegisterTheme(TabBtn, "BackgroundColor3", "Section")
-
-        local TabScale = Instance.new("UIScale", TabBtn)
 
         local TabGlow = Instance.new("ImageLabel", TabBtn)
         TabGlow.Size = UDim2.new(1, 0, 1, 0)
@@ -1399,18 +1101,16 @@ function We13ideLib:CreateWindow(options)
         TabGlow.ScaleType = Enum.ScaleType.Slice
         TabGlow.SliceCenter = Rect.new(24, 24, 276, 276)
         TabGlow.ImageTransparency = 1
-        TabGlow.ZIndex = 3
         We13ideLib:RegisterTheme(TabGlow, "ImageColor3", "Accent")
 
-        local TabIcon = nil
         local resolvedIcon = We13ideLib:ResolveIcon(tabInfo.Icon, WindowName)
+        local TabIcon
         if resolvedIcon ~= "" then
             TabIcon = Instance.new("ImageLabel", TabBtn)
             TabIcon.Size = UDim2.new(0, 18, 0, 18)
             TabIcon.Position = UDim2.new(0, 25, 0.5, -9)
             TabIcon.BackgroundTransparency = 1
             TabIcon.Image = resolvedIcon
-            TabIcon.ZIndex = 5
             We13ideLib:RegisterTheme(TabIcon, "ImageColor3", "TextSecondary")
         end
 
@@ -1422,19 +1122,11 @@ function We13ideLib:CreateWindow(options)
         TabText.Font = Enum.Font.GothamMedium
         TabText.TextSize = 13
         TabText.TextXAlignment = Enum.TextXAlignment.Left
-        TabText.ZIndex = 5
         We13ideLib:RegisterTheme(TabText, "TextColor3", "TextSecondary")
 
-        local Page, PageScale, LeftCol, RightCol = CreatePageFrame()
+        local Page, PageScale, LeftCol, RightCol = CreatePageFrame(PagesContainer)
 
-        TabBtn.MouseEnter:Connect(function()
-            if TabBtn.BackgroundTransparency > 0.6 then We13ideLib:Tween(TabBtn, {BackgroundTransparency = 0.85}, 0.3, Enum.EasingStyle.Quad) end
-        end)
-        TabBtn.MouseLeave:Connect(function()
-            if TabBtn.BackgroundTransparency > 0.6 then We13ideLib:Tween(TabBtn, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad) end
-        end)
-
-        local TabObj = {Page = Page, Btn = TabBtn, Text = TabText, Icon = TabIcon, Glow = TabGlow, Left = LeftCol, Right = RightCol, ToggleSide = false, Active = false, IsDestroyed = false}
+        local TabObj = {Page = Page, Btn = TabBtn, Text = TabText, Icon = TabIcon, Glow = TabGlow, Left = LeftCol, Right = RightCol, ToggleSide = false, Active = false, IsDestroyed = false, HasSubTabs = false, SubTabs = {}}
         table.insert(WindowObj.Tabs, TabObj)
 
         function TabObj:Destroy()
@@ -1444,43 +1136,74 @@ function We13ideLib:CreateWindow(options)
         end
 
         TabBtn.MouseButton1Click:Connect(function()
-            if SearchPage.Visible then
-                SearchPage.Visible = false
-                SearchInput.Text = ""
-            end
-
-            TabScale.Scale = 0.9
-            We13ideLib:Tween(TabScale, {Scale = 1}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
+            if SearchPage.Visible then SearchPage.Visible = false; SearchInput.Text = "" end
             for _, t in pairs(WindowObj.Tabs) do
                 if not t.IsDestroyed then
-                    t.Page.Visible = false
-                    t.Active = false
-                    We13ideLib:Tween(t.Btn, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
-                    We13ideLib:Tween(t.Text, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3, Enum.EasingStyle.Quad)
-                    We13ideLib:Tween(t.Glow, {ImageTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
-                    if t.Icon then We13ideLib:Tween(t.Icon, {ImageColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3, Enum.EasingStyle.Quad) end
+                    t.Page.Visible = false; t.Active = false
+                    We13ideLib:Tween(t.Btn, {BackgroundTransparency = 1}, 0.3)
+                    We13ideLib:Tween(t.Text, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3)
+                    We13ideLib:Tween(t.Glow, {ImageTransparency = 1}, 0.3)
+                    if t.Icon then We13ideLib:Tween(t.Icon, {ImageColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3) end
                 end
             end
-            
-            Page.Visible = true
-            TabObj.Active = true
-            PageScale.Scale = 0.95
-            We13ideLib:Tween(PageScale, {Scale = 1}, 0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-
-            We13ideLib:Tween(TabBtn, {BackgroundTransparency = 0.6}, 0.3, Enum.EasingStyle.Quad)
-            We13ideLib:Tween(TabText, {TextColor3 = We13ideLib.ActiveTheme.TextPrimary}, 0.3, Enum.EasingStyle.Quad)
-            We13ideLib:Tween(TabGlow, {ImageTransparency = 0.7}, 0.3, Enum.EasingStyle.Quad)
-            if TabIcon then We13ideLib:Tween(TabIcon, {ImageColor3 = We13ideLib.ActiveTheme.Accent}, 0.3, Enum.EasingStyle.Quad) end
+            Page.Visible = true; TabObj.Active = true
+            We13ideLib:Tween(TabBtn, {BackgroundTransparency = 0.6}, 0.3)
+            We13ideLib:Tween(TabText, {TextColor3 = We13ideLib.ActiveTheme.TextPrimary}, 0.3)
+            We13ideLib:Tween(TabGlow, {ImageTransparency = 0.7}, 0.3)
+            if TabIcon then We13ideLib:Tween(TabIcon, {ImageColor3 = We13ideLib.ActiveTheme.Accent}, 0.3) end
         end)
         
-        if #WindowObj.Tabs == 1 and not isPinned then
-            TabBtn.BackgroundTransparency = 0.6
-            TabText.TextColor3 = We13ideLib.ActiveTheme.TextPrimary
-            TabGlow.ImageTransparency = 0.7
-            if TabIcon then TabIcon.ImageColor3 = We13ideLib.ActiveTheme.Accent end
-            Page.Visible = true
-            TabObj.Active = true
+        if #WindowObj.Tabs == 1 and not isPinned then TabBtn.BackgroundTransparency = 0.6; TabText.TextColor3 = We13ideLib.ActiveTheme.TextPrimary; TabGlow.ImageTransparency = 0.7; if TabIcon then TabIcon.ImageColor3 = We13ideLib.ActiveTheme.Accent end; Page.Visible = true; TabObj.Active = true end
+
+        -- SubTabs Feature
+        function TabObj:CreateSubTab(stInfo)
+            if not self.HasSubTabs then
+                self.HasSubTabs = true
+                self.Left:Destroy() self.Right:Destroy()
+                
+                self.SubTabTop = Instance.new("Frame", self.Page)
+                self.SubTabTop.Size = UDim2.new(1, -30, 0, 36)
+                self.SubTabTop.BackgroundTransparency = 1
+                
+                local STLayout = Instance.new("UIListLayout", self.SubTabTop)
+                STLayout.FillDirection = Enum.FillDirection.Horizontal
+                STLayout.Padding = UDim.new(0, 10)
+                
+                self.SubPages = Instance.new("Frame", self.Page)
+                self.SubPages.Size = UDim2.new(1, 0, 1, -40)
+                self.SubPages.BackgroundTransparency = 1
+            end
+
+            local STBtn = Instance.new("TextButton", self.SubTabTop)
+            STBtn.Size = UDim2.new(0, 120, 1, 0)
+            STBtn.Text = stInfo.Title
+            STBtn.Font = Enum.Font.GothamMedium
+            STBtn.TextSize = 12
+            Instance.new("UICorner", STBtn).CornerRadius = UDim.new(0, 6)
+            We13ideLib:RegisterTheme(STBtn, "BackgroundColor3", "Section")
+            We13ideLib:RegisterTheme(STBtn, "TextColor3", "TextSecondary")
+
+            local SPage, SScale, SLeft, SRight = CreatePageFrame(self.SubPages)
+            SPage.Size = UDim2.new(1, 0, 1, 0)
+
+            local SubTabObj = {Btn = STBtn, Page = SPage, Left = SLeft, Right = SRight, ToggleSide = false, IsDestroyed = false}
+            table.insert(self.SubTabs, SubTabObj)
+
+            STBtn.MouseButton1Click:Connect(function()
+                for _, st in pairs(self.SubTabs) do
+                    st.Page.Visible = false
+                    We13ideLib:Tween(st.Btn, {TextColor3 = We13ideLib.ActiveTheme.TextSecondary}, 0.3)
+                end
+                SPage.Visible = true
+                We13ideLib:Tween(STBtn, {TextColor3 = We13ideLib.ActiveTheme.Accent}, 0.3)
+            end)
+
+            if #self.SubTabs == 1 then SPage.Visible = true; STBtn.TextColor3 = We13ideLib.ActiveTheme.Accent end
+
+            function SubTabObj:CreateSection(secInfo)
+                return TabObj.CreateSection(self, secInfo) 
+            end
+            return SubTabObj
         end
 
         function TabObj:CreateSection(secInfo)
@@ -1492,16 +1215,11 @@ function We13ideLib:CreateWindow(options)
             Instance.new("UICorner", SectionFrame).CornerRadius = UDim.new(0, 8)
             SectionFrame.ClipsDescendants = true
             We13ideLib:RegisterTheme(SectionFrame, "BackgroundColor3", "Section")
-            We13ideLib:RegisterTheme(SectionFrame, "BackgroundTransparency", "SectionTrans", true)
 
             local SecLayout = Instance.new("UIListLayout", SectionFrame)
             SecLayout.Padding = UDim.new(0, 8)
-
             local SecPadding = Instance.new("UIPadding", SectionFrame)
-            SecPadding.PaddingTop = UDim.new(0, 12)
-            SecPadding.PaddingBottom = UDim.new(0, 12)
-            SecPadding.PaddingLeft = UDim.new(0, 15)
-            SecPadding.PaddingRight = UDim.new(0, 15)
+            SecPadding.PaddingTop = UDim.new(0, 12); SecPadding.PaddingBottom = UDim.new(0, 12); SecPadding.PaddingLeft = UDim.new(0, 15); SecPadding.PaddingRight = UDim.new(0, 15)
 
             local SecTitle = Instance.new("TextLabel", SectionFrame)
             SecTitle.Text = secInfo.Title
@@ -1513,275 +1231,23 @@ function We13ideLib:CreateWindow(options)
             We13ideLib:RegisterTheme(SecTitle, "TextColor3", "TextPrimary")
 
             SecLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                We13ideLib:Tween(SectionFrame, {Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 24)}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                We13ideLib:Tween(SectionFrame, {Size = UDim2.new(1, 0, 0, SecLayout.AbsoluteContentSize.Y + 24)}, 0.5)
             end)
 
-            local SectionObj = { Frame = SectionFrame, OriginalParent = targetCol, CleanTitle = secInfo.Title:lower():gsub("%s+",""), Items = {}, IsDestroyed = false }
-            if not secInfo.Unsearchable then
-                table.insert(WindowObj.SearchableSections, SectionObj)
-            end
-
+            local SectionObj = { Frame = SectionFrame, OriginalParent = targetCol, CleanTitle = secInfo.Title:lower(), Items = {}, IsDestroyed = false }
+            table.insert(WindowObj.SearchableSections, SectionObj)
             BuildSectionElements(SectionFrame, SectionObj)
-
-            function SectionObj:SetTitle(newTitle)
-                SecTitle.Text = newTitle
-                self.CleanTitle = newTitle:lower():gsub("%s+","")
-            end
-
+            
             function SectionObj:Destroy()
+                for _, i in pairs(self.Items) do i:Destroy() end
                 if self.Frame then self.Frame:Destroy() end
                 self.IsDestroyed = true
-                for _, i in pairs(self.Items) do i.IsDestroyed = true end
             end
 
             return SectionObj
         end
         return TabObj
     end
-
-    -- ================= НАСТРОЙКИ (ЗАКРЕПЛЕННАЯ ВКЛАДКА) =================
-    local SettingsTab = WindowObj:CreateTab({Title = "UI Settings", Icon = "rbxassetid://10734950309"}, true)
-    
-    local ThemeSec = SettingsTab:CreateSection({Title = "Theme Colors"})
-    local function AddColorOpt(name, role)
-        ThemeSec:CreateColorPicker({Title = name, Default = Theme[role], Callback = function(color)
-            We13ideLib:UpdateTheme(role, color, false)
-        end})
-    end
-    AddColorOpt("Main Background", "MainBackground")
-    AddColorOpt("Sidebar", "Sidebar")
-    AddColorOpt("Section", "Section")
-    AddColorOpt("Accent", "Accent")
-    AddColorOpt("Text Primary", "TextPrimary")
-    AddColorOpt("Text Secondary", "TextSecondary")
-    AddColorOpt("Element Background", "ElementBg")
-
-    local TransSec = SettingsTab:CreateSection({Title = "UI Transparency"})
-    TransSec:CreateSlider({Title = "Main Background", Min = 0, Max = 1, Default = Theme.MainTrans, Rounding = 0.05, Callback = function(val)
-        We13ideLib:UpdateTheme("MainTrans", val, true)
-    end})
-    TransSec:CreateSlider({Title = "Section Background", Min = 0, Max = 1, Default = Theme.SectionTrans, Rounding = 0.05, Callback = function(val)
-        We13ideLib:UpdateTheme("SectionTrans", val, true)
-    end})
-
-    local function LoadCfg(name)
-        if readfile and isfile and isfile(ConfigPath .. "/" .. name .. ".json") then
-            local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(ConfigPath .. "/" .. name .. ".json")) end)
-            if success and decoded and decoded.Colors then
-                for k, v in pairs(decoded.Colors) do
-                    if type(v) == "table" and v[1] and v[2] and v[3] then
-                        We13ideLib:UpdateTheme(k, Color3.new(v[1], v[2], v[3]), false)
-                    elseif type(v) == "number" then
-                        We13ideLib:UpdateTheme(k, v, true)
-                    end
-                end
-            end
-        end
-    end
-
-    local ConfigSec = SettingsTab:CreateSection({Title = "Config Manager"})
-    local function GetConfigsList()
-        local list = {}
-        if listfiles then
-            for _, file in ipairs(listfiles(ConfigPath)) do
-                local name = file:match("([^/\\]+)%.json$")
-                if name then table.insert(list, name) end
-            end
-        end
-        return #list > 0 and list or {"None"}
-    end
-
-    local ConfigDropdown = ConfigSec:CreateDropdown({Title = "Available Configs", Values = GetConfigsList()})
-    
-    ConfigSec:CreateButton({Title = "Refresh Configs List", Callback = function()
-        ConfigDropdown:Refresh(GetConfigsList())
-    end})
-
-    local CfgNameInput = ConfigSec:CreateInput({Title = "Config Name", Placeholder = "my_theme"})
-
-    ConfigSec:CreateButton({Title = "Save Config", Callback = function()
-        if writefile then
-            local name = CfgNameInput:GetValue()
-            if name == "" then name = "default" end
-            local saveColors = {}
-            for k,v in pairs(We13ideLib.ActiveTheme) do
-                if typeof(v) == "Color3" then
-                    saveColors[k] = {v.R, v.G, v.B}
-                else
-                    saveColors[k] = v
-                end
-            end
-            local data = HttpService:JSONEncode({Colors = saveColors})
-            writefile(ConfigPath .. "/" .. name .. ".json", data)
-            ConfigDropdown:Refresh(GetConfigsList())
-            WindowObj:Notify({Title = "Config Saved", Content = "Saved " .. name .. ".json successfully!", Duration = 3})
-        end
-    end})
-
-    ConfigSec:CreateButton({Title = "Load Config", Callback = function()
-        local selected = ConfigDropdown:GetValue()
-        if selected and selected ~= "None" and selected ~= "Select..." then
-            LoadCfg(selected)
-            WindowObj:Notify({Title = "Config Loaded", Content = "Loaded " .. selected .. " successfully!", Duration = 3})
-        end
-    end})
-
-    local AutoLoadSec = SettingsTab:CreateSection({Title = "Auto-Load Settings"})
-    local autoLoadFile = LibPath .. "/autoload.txt"
-    local currentAuto = (readfile and isfile and isfile(autoLoadFile)) and readfile(autoLoadFile) or ""
-    local isAutoLoad = currentAuto ~= ""
-
-    AutoLoadSec:CreateToggle({Title = "Auto-Load Selected", Default = isAutoLoad, Callback = function(state)
-        if writefile then
-            if state then
-                local selected = ConfigDropdown:GetValue()
-                if selected and selected ~= "None" and selected ~= "Select..." then
-                    writefile(autoLoadFile, selected)
-                end
-            else
-                writefile(autoLoadFile, "")
-            end
-        end
-    end})
-
-    if isAutoLoad and currentAuto ~= "" then task.spawn(function() LoadCfg(currentAuto) end) end
-
-    -- ================= КРАСИВОЕ CONFIRMATION MENU (JELLY BOUNCE) =================
-    local isConfirming = false
-    
-    local ConfirmOverlay = Instance.new("Frame", ScreenGui)
-    ConfirmOverlay.Size = UDim2.new(1, 0, 1, 0)
-    ConfirmOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
-    ConfirmOverlay.BackgroundTransparency = 1
-    ConfirmOverlay.ZIndex = 48
-    ConfirmOverlay.Visible = false
-
-    local ConfirmFrame = Instance.new("Frame", ScreenGui)
-    ConfirmFrame.Size = UDim2.new(0, 340, 0, 170)
-    ConfirmFrame.Position = UDim2.new(0.5, -170, 0.5, -85)
-    ConfirmFrame.Visible = false
-    ConfirmFrame.ZIndex = 50
-    Instance.new("UICorner", ConfirmFrame).CornerRadius = UDim.new(0, 12)
-    We13ideLib:RegisterTheme(ConfirmFrame, "BackgroundColor3", "Section")
-    
-    local ConfirmStroke = Instance.new("UIStroke", ConfirmFrame)
-    ConfirmStroke.Thickness = 1.5
-    We13ideLib:RegisterTheme(ConfirmStroke, "Color", "Accent")
-
-    local ConfirmScale = Instance.new("UIScale", ConfirmFrame)
-    ConfirmScale.Scale = 0
-
-    local ConfirmShadow = Instance.new("ImageLabel", ConfirmFrame)
-    ConfirmShadow.Size = UDim2.new(1, 60, 1, 60)
-    ConfirmShadow.Position = UDim2.new(0, -30, 0, -30)
-    ConfirmShadow.BackgroundTransparency = 1
-    ConfirmShadow.Image = "rbxassetid://5028857472"
-    ConfirmShadow.ScaleType = Enum.ScaleType.Slice
-    ConfirmShadow.SliceCenter = Rect.new(24, 24, 276, 276)
-    ConfirmShadow.ImageTransparency = 0.4
-    ConfirmShadow.ZIndex = 49
-    We13ideLib:RegisterTheme(ConfirmShadow, "ImageColor3", "Accent")
-
-    local ConfirmIcon = Instance.new("ImageLabel", ConfirmFrame)
-    ConfirmIcon.Size = UDim2.new(0, 35, 0, 35)
-    ConfirmIcon.Position = UDim2.new(0.5, -17.5, 0, 15)
-    ConfirmIcon.BackgroundTransparency = 1
-    ConfirmIcon.Image = "rbxassetid://10014844383" 
-    ConfirmIcon.ZIndex = 51
-    We13ideLib:RegisterTheme(ConfirmIcon, "ImageColor3", "Accent")
-
-    local ConfirmTitle = Instance.new("TextLabel", ConfirmFrame)
-    ConfirmTitle.Size = UDim2.new(1, 0, 0, 30)
-    ConfirmTitle.Position = UDim2.new(0, 0, 0, 60)
-    ConfirmTitle.BackgroundTransparency = 1
-    ConfirmTitle.Text = "Do you want to close the cheat?"
-    ConfirmTitle.Font = Enum.Font.GothamBold
-    ConfirmTitle.TextSize = 15
-    ConfirmTitle.ZIndex = 51
-    We13ideLib:RegisterTheme(ConfirmTitle, "TextColor3", "TextPrimary")
-
-    local YesBtn = Instance.new("TextButton", ConfirmFrame)
-    YesBtn.Size = UDim2.new(0, 120, 0, 38)
-    YesBtn.Position = UDim2.new(0.5, -130, 0.5, 25)
-    YesBtn.Text = "YES, CLOSE"
-    YesBtn.Font = Enum.Font.GothamBold
-    YesBtn.TextSize = 13
-    YesBtn.AutoButtonColor = false
-    YesBtn.ZIndex = 51
-    Instance.new("UICorner", YesBtn).CornerRadius = UDim.new(0, 6)
-    We13ideLib:RegisterTheme(YesBtn, "BackgroundColor3", "ElementBg")
-    We13ideLib:RegisterTheme(YesBtn, "TextColor3", "Accent")
-    local YesStroke = Instance.new("UIStroke", YesBtn)
-    YesStroke.Thickness = 1
-    We13ideLib:RegisterTheme(YesStroke, "Color", "Accent")
-    local YesScale = Instance.new("UIScale", YesBtn)
-
-    local NoBtn = Instance.new("TextButton", ConfirmFrame)
-    NoBtn.Size = UDim2.new(0, 120, 0, 38)
-    NoBtn.Position = UDim2.new(0.5, 10, 0.5, 25)
-    NoBtn.Text = "CANCEL"
-    NoBtn.Font = Enum.Font.GothamBold
-    NoBtn.TextSize = 13
-    NoBtn.AutoButtonColor = false
-    NoBtn.ZIndex = 51
-    Instance.new("UICorner", NoBtn).CornerRadius = UDim.new(0, 6)
-    We13ideLib:RegisterTheme(NoBtn, "BackgroundColor3", "ElementBg")
-    We13ideLib:RegisterTheme(NoBtn, "TextColor3", "TextSecondary")
-    local NoStroke = Instance.new("UIStroke", NoBtn)
-    NoStroke.Thickness = 1
-    We13ideLib:RegisterTheme(NoStroke, "Color", "TextSecondary")
-    local NoScale = Instance.new("UIScale", NoBtn)
-
-    YesBtn.MouseEnter:Connect(function() We13ideLib:Tween(YesBtn, {BackgroundColor3 = We13ideLib.ActiveTheme.MainBackground}, 0.2); We13ideLib:Tween(YesScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-    YesBtn.MouseLeave:Connect(function() We13ideLib:Tween(YesBtn, {BackgroundColor3 = We13ideLib.ActiveTheme.ElementBg}, 0.2); We13ideLib:Tween(YesScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-    YesBtn.MouseButton1Down:Connect(function() We13ideLib:Tween(YesScale, {Scale = 0.95}, 0.1) end)
-    
-    NoBtn.MouseEnter:Connect(function() We13ideLib:Tween(NoBtn, {BackgroundColor3 = We13ideLib.ActiveTheme.MainBackground}, 0.2); We13ideLib:Tween(NoScale, {Scale = 1.05}, 0.3, Enum.EasingStyle.Back) end)
-    NoBtn.MouseLeave:Connect(function() We13ideLib:Tween(NoBtn, {BackgroundColor3 = We13ideLib.ActiveTheme.ElementBg}, 0.2); We13ideLib:Tween(NoScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back) end)
-    NoBtn.MouseButton1Down:Connect(function() We13ideLib:Tween(NoScale, {Scale = 0.95}, 0.1) end)
-
-    YesBtn.MouseButton1Click:Connect(function()
-        We13ideLib:Tween(ConfirmOverlay, {BackgroundTransparency = 1}, 0.4)
-        We13ideLib:Tween(MainScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        We13ideLib:Tween(ConfirmScale, {Scale = 0}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Connect(function()
-            ScreenGui:Destroy()
-        end)
-    end)
-
-    NoBtn.MouseButton1Click:Connect(function()
-        We13ideLib:Tween(ConfirmOverlay, {BackgroundTransparency = 1}, 0.4)
-        We13ideLib:Tween(ConfirmScale, {Scale = 0}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Connect(function()
-            ConfirmFrame.Visible = false
-            ConfirmOverlay.Visible = false
-            isConfirming = false
-        end)
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if not WindowObj.IsLoaded then return end
-        
-        if input.KeyCode == Enum.KeyCode.RightShift then
-            if isConfirming then return end
-            isVisible = not isVisible
-            if isVisible then
-                MainFrame.Visible = true
-                We13ideLib:Tween(MainScale, {Scale = 1}, 0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            else
-                We13ideLib:Tween(MainScale, {Scale = 0}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In).Completed:Connect(function()
-                    if not isVisible then MainFrame.Visible = false end
-                end)
-            end
-        elseif input.KeyCode == Enum.KeyCode.RightAlt then
-            if not isVisible or isConfirming then return end
-            isConfirming = true
-            ConfirmOverlay.Visible = true
-            We13ideLib:Tween(ConfirmOverlay, {BackgroundTransparency = 0.5}, 0.4)
-            ConfirmFrame.Visible = true
-            ConfirmScale.Scale = 0.5
-            We13ideLib:Tween(ConfirmScale, {Scale = 1}, 0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-        end
-    end)
 
     return WindowObj
 end
